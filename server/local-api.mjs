@@ -112,7 +112,7 @@ export function createApiApp({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   }));
   app.use((request, response, next) => {
     const bodyLimit = request.method === 'POST' && request.path === '/api/destinations' ? '18mb'
@@ -179,11 +179,11 @@ app.post('/api/admin/login', loginLimiter, async (request, response, next) => {
     path: '/',
     maxAge: 12 * 60 * 60 * 1000,
   }));
-  response.json({ authenticated: true });
+  response.json({ authenticated: true, token });
 });
 
 app.get('/api/admin/session', (request, response) => {
-  response.json({ authenticated: isValidSession(request.cookies?.[cookieName], sessionSecret) });
+  response.json({ authenticated: isValidSession(getAdminSessionToken(request, cookieName), sessionSecret) });
 });
 
 app.post('/api/admin/logout', (_request, response) => {
@@ -826,11 +826,19 @@ function isValidSession(token, secret) {
 
 function createAdminMiddleware({ sessionSecret, cookieName }) {
   return (request, response, next) => {
-    if (!isValidSession(request.cookies?.[cookieName], sessionSecret)) {
+    if (!isValidSession(getAdminSessionToken(request, cookieName), sessionSecret)) {
       return response.status(401).json({ error: 'Authentication required.' });
     }
     next();
   };
+}
+
+function getAdminSessionToken(request, cookieName) {
+  const authorization = request.get('authorization');
+  const bearerToken = typeof authorization === 'string'
+    ? /^Bearer\s+(\S+)$/i.exec(authorization)?.[1]
+    : undefined;
+  return request.cookies?.[cookieName] || bearerToken;
 }
 
 function validatePathId(request, response, next) {

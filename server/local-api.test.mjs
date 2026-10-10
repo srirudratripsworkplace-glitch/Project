@@ -48,13 +48,14 @@ async function startTestApi({ pool = makePool(async (sql) => {
   };
 }
 
-async function apiRequest(url, path, { method = 'GET', body, cookie, origin = frontendOrigin } = {}) {
+async function apiRequest(url, path, { method = 'GET', body, cookie, authorization, origin = frontendOrigin } = {}) {
   return fetch(`${url}${path}`, {
     method,
     headers: {
       Origin: origin,
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       ...(cookie ? { Cookie: cookie } : {}),
+      ...(authorization ? { Authorization: authorization } : {}),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
@@ -65,6 +66,7 @@ async function signIn(url, password = adminPassword) {
   return {
     response,
     cookie: response.headers.get('set-cookie')?.split(';')[0],
+    token: (await response.clone().json()).token,
   };
 }
 
@@ -119,6 +121,39 @@ describe('public API access controls and validation', () => {
     expect(response.headers.get('set-cookie')).toContain('HttpOnly');
     expect((await apiRequest(api.url, '/api/admin-data', { cookie })).status).toBe(200);
     await expect((await apiRequest(api.url, '/api/admin/session', { cookie })).json()).resolves.toEqual({ authenticated: true });
+  });
+
+  it('allows the signed login token when browser cookie storage is unavailable', async () => {
+    api = await startTestApi();
+    const { response, token } = await signIn(api.url);
+    expect(response.status).toBe(200);
+    expect(token).toEqual(expect.any(String));
+
+    const session = await apiRequest(api.url, '/api/admin/session', {
+      authorization: `Bearer ${token}`,
+    });
+    await expect(session.json()).resolves.toEqual({ authenticated: true });
+
+    const adminData = await apiRequest(api.url, '/api/admin-data', {
+      authorization: `Bearer ${token}`,
+    });
+    expect(adminData.status).toBe(200);
+    expect(api.pool.query).toHaveBeenCalledWith(expect.stringContaining('from enquiries'));
+  });
+
+  it('permits the authorization header in cross-origin admin request preflights', async () => {
+    api = await startTestApi();
+    const response = await fetch(`${api.url}/api/admin-data`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: frontendOrigin,
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization',
+      },
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get('access-control-allow-headers')).toContain('Authorization');
   });
 
   it('requires a valid scrypt password hash in server configuration', () => {

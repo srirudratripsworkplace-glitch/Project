@@ -49,7 +49,7 @@ Before manually submitting enquiries in local development, unset SMTP and WhatsA
 - Set optional SMTP and WhatsApp credentials only in this API service's environment.
 - Configure liveness at `/health/live` and readiness at `/health/ready`; readiness checks database connectivity without returning database details.
 
-Use custom frontend and API hostnames under the same site (for example `www.example.com` and `api.example.com`) for reliable browser admin cookies. Production admin cookies are secure, HTTP-only, and `SameSite=None` for cross-origin API requests; browser privacy controls may block cookies when the frontend and API are on unrelated registrable domains.
+Use custom frontend and API hostnames under the same site (for example `www.example.com` and `api.example.com`) for reliable browser admin cookies. Production admin cookies are secure, HTTP-only, and `SameSite=None` for cross-origin API requests; browser privacy controls may block cookies when the frontend and API are on unrelated registrable domains. The API also returns a signed 12-hour admin token after successful login; the frontend keeps it in memory and sends it as a bearer token so admin requests still work when the browser blocks cookies. This fallback does not persist across page reloads, so the administrator must sign in again after a reload in browsers that block the cookie.
 
 ## Database and deployment safety
 

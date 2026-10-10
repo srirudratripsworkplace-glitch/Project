@@ -3,6 +3,7 @@ import { resolveApiBaseUrl } from '../config/runtime';
 import type { EnquiryPayload } from '../utils/whatsapp';
 
 const localApiUrl = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+let adminSessionToken: string | undefined;
 
 type TripData = {
   categories: TripCategory[];
@@ -33,6 +34,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T | undefin
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...(adminSessionToken ? { Authorization: `Bearer ${adminSessionToken}` } : {}),
       ...init?.headers,
     },
   });
@@ -64,15 +66,22 @@ export async function checkAdminSession() {
 }
 
 export async function loginAdmin(password: string) {
-  const result = await request<{ authenticated: boolean }>('/api/admin/login', {
+  const result = await request<{ authenticated: boolean; token: string }>('/api/admin/login', {
     method: 'POST',
     body: JSON.stringify({ password }),
   });
-  if (!result?.authenticated) throw new Error('Could not authenticate the admin session.');
+  if (!result?.authenticated || typeof result.token !== 'string' || !result.token) {
+    throw new Error('Could not authenticate the admin session.');
+  }
+  adminSessionToken = result.token;
 }
 
 export async function logoutAdmin() {
-  await request('/api/admin/logout', { method: 'POST' });
+  try {
+    await request('/api/admin/logout', { method: 'POST' });
+  } finally {
+    adminSessionToken = undefined;
+  }
 }
 
 export async function getPublicSpecialTrips() {
