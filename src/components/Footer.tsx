@@ -42,15 +42,20 @@ export function Footer() {
         <div>
           <h3 className="font-semibold">Contact</h3>
           <div className="mt-4 grid gap-3 text-sm text-white/70">
-            <span className="flex items-center gap-2">
+            <a className="flex items-center gap-2 transition hover:text-white" href={`tel:${businessConfig.phone.replace(/\s/g, '')}`}>
               <Phone size={16} /> {businessConfig.phone}
-            </span>
-            <span className="flex items-center gap-2">
-              <WhatsAppIcon size={16} /> WhatsApp placeholder
-            </span>
-            <span className="flex items-center gap-2">
+            </a>
+            <a
+              className="flex items-center gap-2 transition hover:text-white"
+              href={`https://wa.me/${businessConfig.whatsappNumber}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <WhatsAppIcon size={16} /> {businessConfig.phone}
+            </a>
+            <a className="flex items-center gap-2 transition hover:text-white" href={`mailto:${businessConfig.email}`}>
               <Mail size={16} /> {businessConfig.email}
-            </span>
+            </a>
             <span className="flex items-center gap-2">
               <MapPin size={16} /> {businessConfig.location}
             </span>

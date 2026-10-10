@@ -1,7 +1,7 @@
 export const businessConfig = {
   name: 'Srirudra Trips',
-  whatsappNumber: '918186981479',
-  phone: '+91 81869 81479',
-  email: 'hello@srirudratrips.com',
+  whatsappNumber: '447405958896',
+  phone: '+44 7405 958896',
+  email: 'srirudratripsworkplace@gmail.com',
   location: 'Location to be updated',
 };

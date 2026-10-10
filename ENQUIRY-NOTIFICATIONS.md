@@ -14,7 +14,7 @@ Configure all of the following to enable email notifications:
 - `SMTP_PORT`: SMTP port (commonly 465 for implicit TLS or 587 for STARTTLS).
 - `SMTP_USER` and `SMTP_PASS`: provider-issued SMTP login credentials or app password.
 - `ENQUIRY_FROM_EMAIL`: sender address authorized by the provider.
-- `ENQUIRY_TO_EMAIL`: Srirudra Trips business inbox that should receive enquiries.
+- `ENQUIRY_TO_EMAIL`: Srirudra Trips business inbox that should receive enquiries (defaults to `srirudratripsworkplace@gmail.com`).
 
 Email notifications remain disabled unless all SMTP settings, including a valid recipient, are configured. Use a provider-issued SMTP credential; never use a personal account password.
 
@@ -24,13 +24,13 @@ Configure all of the following to enable WhatsApp notifications:
 
 - `WHATSAPP_ACCESS_TOKEN`: server-side Meta Cloud API access token.
 - `WHATSAPP_PHONE_NUMBER_ID`: sender phone-number ID from the WhatsApp Business Platform.
-- `WHATSAPP_BUSINESS_NUMBER`: business number that should receive the notification, in international format.
+- `WHATSAPP_BUSINESS_NUMBER`: business number that should receive the notification, in international format (defaults to `447405958896`).
 - `WHATSAPP_TEMPLATE_NAME`: approved template name available to that WhatsApp Business Account.
 - `WHATSAPP_API_VERSION`: a Graph API version currently supported for your Meta app.
 
 The configured approved template must use English (`en`) and contain nine body placeholders in this order: customer name, customer phone, customer email, destination, travel date, traveller count, message, submission timestamp, enquiry ID. Configure and approve a matching template in Meta before enabling these settings. The API result `accepted` means Meta accepted the message request; it is not a delivery receipt.
 
-If either notification service is not fully configured, that service stays disabled while enquiry saving and the other configured service continue to work. Notification failures do not undo an enquiry saved to PostgreSQL. Restart the Node.js API after changing its environment.
+All enquiry forms also open a prefilled WhatsApp message to the configured business number after the enquiry is saved. The server-side email and WhatsApp notifications use the recipient defaults above, but still require valid SMTP credentials and a configured WhatsApp Business Cloud API sender/template. If either notification service is not fully configured, that service stays disabled while enquiry saving and the other configured service continue to work. Notification failures do not undo an enquiry saved to PostgreSQL. Restart the Node.js API after changing its environment.
 
 ## Local testing
 

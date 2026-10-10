@@ -59,8 +59,8 @@ export function createApiApp({
   const sessionSecret = env.ADMIN_SESSION_SECRET;
   const cookieName = isProduction ? '__Host-srirudra-admin' : 'srirudra-admin';
   const smtpPort = Number(env.SMTP_PORT);
-  const enquiryToEmail = env.ENQUIRY_TO_EMAIL || '';
-  const whatsappBusinessNumber = (env.WHATSAPP_BUSINESS_NUMBER || '').replace(/\D/g, '');
+  const enquiryToEmail = env.ENQUIRY_TO_EMAIL || 'srirudratripsworkplace@gmail.com';
+  const whatsappBusinessNumber = (env.WHATSAPP_BUSINESS_NUMBER || '447405958896').replace(/\D/g, '');
   const emailNotificationsConfigured = Boolean(
     env.SMTP_HOST &&
     Number.isInteger(smtpPort) &&
