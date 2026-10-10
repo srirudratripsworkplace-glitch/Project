@@ -1,0 +1,240 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap');
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  body {
+    margin: 0;
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    overflow-x: hidden;
+    text-rendering: geometricPrecision;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply w-full rounded-[8px] border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-ocean-600 focus:ring-4 focus:ring-ocean-100;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  .compact-form input,
+  .compact-form select,
+  .compact-form textarea {
+    @apply px-3 py-2 text-sm;
+  }
+
+  @media (max-width: 639px) {
+    .compact-form input,
+    .compact-form select,
+    .compact-form textarea {
+      font-size: 16px;
+    }
+  }
+}
+
+@layer components {
+  .section {
+    @apply px-4 py-14 sm:px-6 sm:py-20 lg:px-8;
+  }
+
+  .section-inner {
+    @apply mx-auto max-w-7xl;
+  }
+
+  .eyebrow {
+    @apply mb-3 text-sm font-bold uppercase tracking-[0.18em] text-ocean-600;
+  }
+
+  .section-title {
+    @apply font-display text-[2.15rem] font-bold leading-tight tracking-normal text-ocean-900 min-[390px]:text-4xl sm:text-5xl;
+  }
+
+  .btn-primary,
+  .btn-light,
+  .btn-glass,
+  .btn-outline {
+    @apply inline-flex min-h-12 items-center gap-2 rounded-[8px] px-5 py-3 text-sm font-bold transition focus:outline-none focus:ring-4;
+  }
+
+  .btn-primary {
+    @apply bg-ocean-700 text-white shadow-sm hover:bg-ocean-600 focus:ring-ocean-200;
+  }
+
+  .btn-light {
+    @apply bg-white text-ocean-900 shadow-sm hover:bg-ocean-50 focus:ring-white/50;
+  }
+
+  .btn-glass {
+    @apply border border-white/30 bg-white/10 text-white backdrop-blur hover:bg-white/20 focus:ring-white/40;
+  }
+
+  .btn-outline {
+    @apply border border-ocean-200 bg-white text-ocean-800 hover:bg-ocean-50 focus:ring-ocean-100;
+  }
+
+  .footer-icon {
+    @apply grid h-10 w-10 place-items-center rounded-full border border-white/15 text-white/75 transition hover:border-white/35 hover:text-white;
+  }
+}
+
+@layer utilities {
+  .h-18 {
+    height: 4.5rem;
+  }
+
+  .pt-18 {
+    padding-top: 4.5rem;
+  }
+
+  .animate-menu-down {
+    animation: menu-down 180ms ease-out both;
+  }
+
+  .splash-enter {
+    animation: splash-enter 650ms ease-out both;
+  }
+
+  .splash-bg {
+    animation: splash-bg 1750ms ease-out both;
+  }
+
+  .splash-progress {
+    animation: splash-progress 1350ms ease-in-out infinite;
+  }
+
+  .splash-exit {
+    animation: splash-exit 420ms ease-in forwards;
+  }
+
+  .text-slate-650 {
+    color: #475569;
+  }
+
+  .scrollbar-soft {
+    scrollbar-color: #148b8d #e2e8f0;
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-soft::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  .scrollbar-soft::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 999px;
+  }
+
+  .scrollbar-soft::-webkit-scrollbar-thumb {
+    background: #148b8d;
+    border-radius: 999px;
+  }
+
+  .animate-fade-up {
+    animation: fade-up 700ms ease-out both;
+  }
+}
+
+@keyframes menu-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes splash-bg {
+  from {
+    transform: scale(1.1);
+  }
+  to {
+    transform: scale(1.03);
+  }
+}
+
+@keyframes splash-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(210%);
+  }
+}
+
+@keyframes splash-exit {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 639px) {
+  .whatsapp-mobile-bounce {
+    animation: whatsapp-mobile-bounce 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes whatsapp-mobile-bounce {
+  0%,
+  62%,
+  100% {
+    translate: 0 0;
+  }
+  70% {
+    translate: 0 -8px;
+  }
+  78% {
+    translate: 0 0;
+  }
+  86% {
+    translate: 0 -5px;
+  }
+  94% {
+    translate: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whatsapp-mobile-bounce {
+    animation: none;
+  }
+}
