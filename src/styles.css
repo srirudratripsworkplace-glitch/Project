@@ -208,6 +208,57 @@
 }
 
 @media (max-width: 639px) {
+  #root > main > form {
+    width: min(100%, 28rem);
+    padding: 1.25rem;
+  }
+
+  #root > main > header {
+    padding: 0.875rem 0.75rem;
+  }
+
+  #root > main > header h1 {
+    font-size: clamp(1.875rem, 8vw, 2.25rem);
+  }
+
+  #root > main > header > div > div:last-child {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  #root > main > header > div > div:last-child > button {
+    flex: 1 1 auto;
+  }
+
+  #root > main > header + div {
+    min-width: 0;
+    gap: 1rem;
+    padding: 1rem 0.75rem;
+  }
+
+  #root > main > header + div > section {
+    min-width: 0;
+    padding: 1rem;
+  }
+
+  #root > main > header + div > section > form,
+  #root > main > header + div > section article,
+  #root > main > header + div > section label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #root > main > header + div > section > div.overflow-x-auto table {
+    min-width: 40rem;
+  }
+
+  #root > main input:not([type='file']),
+  #root > main select,
+  #root > main textarea {
+    min-width: 0;
+    font-size: 16px;
+  }
+
   .whatsapp-mobile-bounce {
     animation: whatsapp-mobile-bounce 1.8s ease-in-out infinite;
   }

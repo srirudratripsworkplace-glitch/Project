@@ -14,7 +14,7 @@ Configure all of the following to enable email notifications:
 - `SMTP_PORT`: SMTP port (commonly 465 for implicit TLS or 587 for STARTTLS).
 - `SMTP_USER` and `SMTP_PASS`: provider-issued SMTP login credentials or app password.
 - `ENQUIRY_FROM_EMAIL`: sender address authorized by the provider.
-- `ENQUIRY_TO_EMAIL`: Srirudra Trips business inbox that should receive enquiries (defaults to `srirudratripsworkplace@gmail.com`).
+- `ENQUIRY_TO_EMAIL`: Srirudra Trips business inbox that should receive enquiries (defaults to `srirudratrips@gmail.com`).
 
 Email notifications remain disabled unless all SMTP settings, including a valid recipient, are configured. Use a provider-issued SMTP credential; never use a personal account password.
 
