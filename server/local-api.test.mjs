@@ -1,12 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFile } from 'node:fs/promises';
+import { randomFillSync } from 'node:crypto';
+import sharp from 'sharp';
 import { closeApiServer, createApiApp } from './local-api.mjs';
+import { ImageInputError } from './images.mjs';
 import { hashAdminPassword, isValidAdminPasswordHash, verifyAdminPassword } from './password.mjs';
 
 const frontendOrigin = 'http://localhost:5173';
 const adminPassword = 'local-test-password-12345';
 const sessionSecret = 'test-only-session-secret-with-at-least-32-bytes';
 const adminPasswordHash = await hashAdminPassword(adminPassword);
+const smallImage = await sharp({
+  create: { width: 2, height: 2, channels: 3, background: { r: 40, g: 90, b: 120 } },
+}).png().toBuffer();
+const imageDataUrl = `data:image/png;base64,${smallImage.toString('base64')}`;
 
 function makePool(queryImplementation) {
   return { query: vi.fn(queryImplementation), end: vi.fn(async () => {}) };
@@ -18,7 +25,7 @@ async function startTestApi({ pool = makePool(async (sql) => {
     return { rows: [{ id: 'enquiry-uuid', created_at: '2026-10-09T00:00:00.000Z' }] };
   }
   return { rows: [], rowCount: 1 };
-}), sendEmailNotification = async () => 'disabled', sendWhatsAppNotification = async () => 'disabled' } = {}) {
+}), sendEmailNotification = async () => 'disabled', sendWhatsAppNotification = async () => 'disabled', processImage } = {}) {
   const app = createApiApp({
     pool,
     env: {
@@ -29,6 +36,7 @@ async function startTestApi({ pool = makePool(async (sql) => {
     },
     sendEmailNotification,
     sendWhatsAppNotification,
+    processImage,
   });
   const server = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
@@ -147,6 +155,74 @@ describe('public API access controls and validation', () => {
     });
     expect(response.status).toBe(204);
     expect(api.pool.query).toHaveBeenCalledWith(expect.stringContaining('insert into trip_categories'), expect.any(Array));
+  });
+
+  it('accepts a 2 MB base64 image and rejects an image larger than 2 MB', async () => {
+    api = await startTestApi();
+    const { cookie } = await signIn(api.url);
+    const category = {
+      id: 'image-size-test',
+      title: 'Image size test',
+      image: imageDataUrl,
+    };
+    expect((await apiRequest(api.url, '/api/trip-categories', { method: 'POST', cookie, body: category })).status).toBe(204);
+
+    const oversizedImage = await sharp({
+      create: { width: 1024, height: 1024, channels: 3, background: { r: 40, g: 90, b: 120 } },
+    }).png({ compressionLevel: 0 }).toBuffer();
+    expect(oversizedImage.length).toBeGreaterThan(2 * 1024 * 1024);
+    const oversizedResponse = await apiRequest(api.url, '/api/trip-categories', {
+      method: 'POST',
+      cookie,
+      body: { ...category, id: 'oversized-image-test', image: `data:image/png;base64,${oversizedImage.toString('base64')}` },
+    });
+    expect(oversizedResponse.status).toBe(400);
+    expect(api.pool.query).toHaveBeenCalledOnce();
+  });
+
+  it('allows destination requests containing multiple images larger than the general JSON limit', async () => {
+    api = await startTestApi();
+    const { cookie } = await signIn(api.url);
+    const pixels = randomFillSync(Buffer.alloc(600 * 600 * 3));
+    const image = `data:image/png;base64,${(await sharp(pixels, { raw: { width: 600, height: 600, channels: 3 } }).png().toBuffer()).toString('base64')}`;
+    const body = {
+      id: 'large-images-test',
+      categoryId: 'test-category',
+      name: 'Large images test',
+      images: [image, image, image, image, image, image],
+    };
+    expect(Buffer.byteLength(JSON.stringify(body))).toBeGreaterThan(8 * 1024 * 1024);
+    const response = await apiRequest(api.url, '/api/destinations', { method: 'POST', cookie, body });
+    expect(response.status).toBe(204);
+    expect(api.pool.query).toHaveBeenCalledWith(expect.stringContaining('insert into destinations'), expect.any(Array));
+  });
+
+  it('normalizes submitted HTTPS image URLs before storing them', async () => {
+    const processImage = vi.fn(async () => imageDataUrl);
+    api = await startTestApi({ processImage });
+    const { cookie } = await signIn(api.url);
+    const response = await apiRequest(api.url, '/api/trip-categories', {
+      method: 'POST',
+      cookie,
+      body: { id: 'external-image-test', title: 'External image test', image: 'https://images.example/photo' },
+    });
+    expect(response.status).toBe(204);
+    expect(processImage).toHaveBeenCalledWith('https://images.example/photo');
+    expect(api.pool.query.mock.calls.at(-1)[1][4]).toBe(imageDataUrl);
+  });
+
+  it('returns a clear client error and does not save unsafe image URLs', async () => {
+    const processImage = vi.fn(async () => { throw new ImageInputError('Only public HTTPS image URLs are allowed.'); });
+    api = await startTestApi({ processImage });
+    const { cookie } = await signIn(api.url);
+    const response = await apiRequest(api.url, '/api/trip-categories', {
+      method: 'POST',
+      cookie,
+      body: { id: 'unsafe-image-test', title: 'Unsafe image test', image: 'http://127.0.0.1/private.png' },
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Only public HTTPS image URLs are allowed.' });
+    expect(api.pool.query).not.toHaveBeenCalled();
   });
 
   it('rejects invalid admin content before database writes', async () => {

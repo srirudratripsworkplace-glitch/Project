@@ -70,6 +70,9 @@ const emptyCustomerReview: Omit<CustomerReview, 'id' | 'createdAt'> = {
   isActive: true,
 };
 
+const maximumImageSize = 2 * 1024 * 1024;
+const maximumDestinationImageDataLength = 17_000_000;
+
 export function AdminPage() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
@@ -204,7 +207,7 @@ export function AdminPage() {
       const selectedFiles = Array.from(files).slice(0, remainingSlots);
       const newImages = await Promise.all(selectedFiles.map(compressImage));
       const images = [...currentImages, ...newImages];
-      if (images.reduce((total, image) => total + image.length, 0) > 7_000_000) {
+      if (images.reduce((total, image) => total + image.length, 0) > maximumDestinationImageDataLength) {
         throw new Error('These images are too large to save together. Choose smaller files or remove an image.');
       }
       setDestinationForm({ ...destinationForm, image: images[0] || '', images });
@@ -219,6 +222,19 @@ export function AdminPage() {
     const images = (destinationForm.images?.length ? destinationForm.images : [destinationForm.image].filter(Boolean))
       .filter((_, imageIndex) => imageIndex !== index);
     setDestinationForm({ ...destinationForm, image: images[0] || '', images });
+  }
+
+  async function addSpecialTripImage(file: File | undefined) {
+    if (!file) return;
+
+    try {
+      const image = await compressImage(file);
+      setSpecialTripForm((current) => ({ ...current, image }));
+      setError('');
+      setStatus('Special trip photo added. Save the trip to publish it.');
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Could not process the special trip photo.');
+    }
   }
 
   async function saveSpecialTrip(event: FormEvent<HTMLFormElement>) {
@@ -277,9 +293,6 @@ export function AdminPage() {
 
     try {
       const image = await compressImage(file);
-      if (image.length > 4_500_000) {
-        throw new Error('The image is too large after processing. Choose a smaller photo.');
-      }
       setCustomerReviewForm((current) => ({ ...current, image }));
       setError('');
       setStatus('Customer photo added. Save the review to publish it.');
@@ -381,7 +394,25 @@ export function AdminPage() {
             <TextInput label="Title" value={specialTripForm.title} onChange={(title) => setSpecialTripForm({ ...specialTripForm, title })} required />
             <TextInput label="From" value={specialTripForm.fromLocation} onChange={(fromLocation) => setSpecialTripForm({ ...specialTripForm, fromLocation })} />
             <TextInput label="Destination" value={specialTripForm.destination} onChange={(destination) => setSpecialTripForm({ ...specialTripForm, destination })} required />
-            <TextInput label="Image URL or local path" value={specialTripForm.image} onChange={(image) => setSpecialTripForm({ ...specialTripForm, image })} />
+            <TextInput
+              label="Image URL or local path"
+              value={specialTripForm.image.startsWith('data:') ? '' : specialTripForm.image}
+              onChange={(image) => setSpecialTripForm({ ...specialTripForm, image })}
+            />
+            <label>
+              <span className="mb-2 block text-sm font-bold">Upload trip photo</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => {
+                  void addSpecialTripImage(event.target.files?.[0]);
+                  event.target.value = '';
+                }}
+              />
+            </label>
+            {specialTripForm.image.startsWith('data:') && (
+              <img src={specialTripForm.image} alt="Special trip photo preview" className="h-24 w-24 rounded-[8px] object-cover" />
+            )}
             <label>
               <span className="mb-2 block text-sm font-bold">Date</span>
               <input type="date" value={specialTripForm.tripDate} onChange={(event) => setSpecialTripForm({ ...specialTripForm, tripDate: event.target.value })} />
@@ -504,7 +535,7 @@ export function AdminPage() {
                     <input
                       className="sr-only"
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
                       multiple
                       onChange={(event) => {
                         void addDestinationImages(event.target.files);
@@ -519,7 +550,7 @@ export function AdminPage() {
                 value={destinationForm.image.startsWith('data:') ? '' : destinationForm.image}
                 onChange={(image) => setDestinationForm({ ...destinationForm, image, images: image ? [image, ...(destinationForm.images || []).slice(1)] : destinationForm.images?.slice(1) || [] })}
               />
-              <p className="mt-2 text-xs text-slate-500">Upload up to 6 photos. Images are resized before saving; you can preview and remove them here.</p>
+              <p className="mt-2 text-xs text-slate-500">Upload up to 6 photos, each no larger than 2 MB after processing. You can preview and remove them here.</p>
             </div>
             <TextInput
               label="Short Description"
@@ -614,7 +645,7 @@ export function AdminPage() {
                   event.target.value = '';
                 }} />
               </label>
-              <p className="mt-2 text-xs text-slate-500">Images are resized before saving. Only upload photos with the customer’s permission.</p>
+              <p className="mt-2 text-xs text-slate-500">Images over 2 MB are compressed before saving. Only upload photos with the customer’s permission.</p>
             </div>
             <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
               <Toggle checked={customerReviewForm.isActive} onChange={(isActive) => setCustomerReviewForm({ ...customerReviewForm, isActive })} />
@@ -741,14 +772,76 @@ function toLines(value: string) {
 }
 
 async function compressImage(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1440 / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error(`Could not process "${file.name}".`);
-  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  return canvas.toDataURL('image/webp', 0.8);
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    throw new Error(`"${file.name}" is not a supported image. Choose a JPEG, PNG, or WebP file.`);
+  }
+  if (file.size <= maximumImageSize) return readFileAsDataUrl(file);
+
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw new Error(`Could not open "${file.name}" for compression. Choose a valid image file.`);
+  }
+
+  try {
+    const originalMaxDimension = Math.max(bitmap.width, bitmap.height);
+    if (!originalMaxDimension) throw new Error(`Could not process "${file.name}".`);
+    let maxDimension = Math.min(4096, originalMaxDimension);
+    const qualities = [0.85, 0.75, 0.65, 0.55, 0.45, 0.35, 0.25];
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const scale = Math.min(1, maxDimension / originalMaxDimension);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error(`Could not process "${file.name}".`);
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+      for (const quality of qualities) {
+        let blob = await canvasToBlob(canvas, 'image/webp', quality);
+        if (blob.type !== 'image/webp') blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+        if (blob.size <= maximumImageSize) return readBlobAsDataUrl(blob);
+      }
+
+      if (maxDimension <= 128) break;
+      maxDimension = Math.max(128, Math.floor(maxDimension * 0.8));
+    }
+    throw new Error(`Could not compress "${file.name}" to 2 MB. Choose a smaller image.`);
+  } finally {
+    bitmap.close();
+  }
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === 'string'
+      ? resolve(reader.result)
+      : reject(new Error(`Could not read "${file.name}".`));
+    reader.onerror = () => reject(new Error(`Could not read "${file.name}".`));
+    reader.readAsDataURL(file);
+  });
+}
+
+function readBlobAsDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === 'string'
+      ? resolve(reader.result)
+      : reject(new Error('Could not prepare the compressed image for upload.'));
+    reader.onerror = () => reject(new Error('Could not prepare the compressed image for upload.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => blob ? resolve(blob) : reject(new Error('The browser could not compress this image.')),
+      type,
+      quality,
+    );
+  });
 }

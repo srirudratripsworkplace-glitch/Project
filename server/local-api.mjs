@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
 import pg from 'pg';
 import { readFileSync } from 'node:fs';
+import { ImageInputError, processImageDataUrl, processImageReference, validateImageDataUrl } from './images.mjs';
 import { isValidAdminPasswordHash, verifyAdminPassword } from './password.mjs';
 
 dotenv.config({ path: '.env.local', quiet: true });
@@ -18,7 +19,6 @@ const defaultLocalOrigins = [
   'http://localhost:4173',
   'http://127.0.0.1:4173',
 ];
-
 function toCustomerReview(row) {
   return {
     id: row.id,
@@ -33,8 +33,7 @@ function toCustomerReview(row) {
 
 function validateCustomerReview(value) {
   if (!isPlainObject(value) || !isText(value.name, 120, true) || !isText(value.text, 2000, true)) return null;
-  if (typeof value.image !== 'string' || value.image.length > 4_500_000) return null;
-  if (value.image && !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(value.image)) return null;
+  if (typeof value.image !== 'string' || (value.image && !isSafeImage(value.image))) return null;
   if (!isText(value.trip ?? '', 160) || typeof (value.isActive ?? true) !== 'boolean') return null;
 
   return {
@@ -51,6 +50,7 @@ export function createApiApp({
   env = process.env,
   sendEmailNotification,
   sendWhatsAppNotification,
+  processImage = processImageReference,
 } = {}) {
   if (!pool) throw new Error('A database pool is required to create the API.');
   const app = express();
@@ -115,7 +115,8 @@ export function createApiApp({
     allowedHeaders: ['Content-Type'],
   }));
   app.use((request, response, next) => {
-    const bodyLimit = request.path === '/api/enquiries' ? '16kb'
+    const bodyLimit = request.method === 'POST' && request.path === '/api/destinations' ? '18mb'
+      : request.path === '/api/enquiries' ? '16kb'
       : request.path === '/api/admin/login' ? '2kb'
         : '8mb';
     express.json({ limit: bodyLimit, strict: true })(request, response, next);
@@ -331,7 +332,10 @@ app.post('/api/enquiries', enquiryLimiter, async (request, response, next) => {
 
 app.post('/api/customer-reviews', requireAdmin, async (request, response, next) => {
   try {
-    const review = validateCustomerReview(request.body);
+    const reviewInput = isPlainObject(request.body)
+      ? { ...request.body, image: await normalizeImageInput(request.body.image, processImage) }
+      : request.body;
+    const review = validateCustomerReview(reviewInput);
     if (!review) return response.status(400).json({ error: 'Enter a customer name and review, and upload a valid image.' });
 
     const result = await pool.query(
@@ -342,13 +346,17 @@ app.post('/api/customer-reviews', requireAdmin, async (request, response, next) 
     );
     response.status(201).json(toCustomerReview(result.rows[0]));
   } catch (error) {
+    if (respondToImageError(error, response)) return;
     next(error);
   }
 });
 
 app.put('/api/customer-reviews/:id', requireAdmin, validateReviewId, async (request, response, next) => {
   try {
-    const review = validateCustomerReview(request.body);
+    const reviewInput = isPlainObject(request.body)
+      ? { ...request.body, image: await normalizeImageInput(request.body.image, processImage) }
+      : request.body;
+    const review = validateCustomerReview(reviewInput);
     if (!review) return response.status(400).json({ error: 'Enter a customer name and review, and upload a valid image.' });
 
     const result = await pool.query(
@@ -361,6 +369,7 @@ app.put('/api/customer-reviews/:id', requireAdmin, validateReviewId, async (requ
     if (result.rowCount === 0) return response.status(404).json({ error: 'Customer review not found.' });
     response.json(toCustomerReview(result.rows[0]));
   } catch (error) {
+    if (respondToImageError(error, response)) return;
     next(error);
   }
 });
@@ -376,7 +385,10 @@ app.delete('/api/customer-reviews/:id', requireAdmin, validateReviewId, async (r
 
 app.post('/api/special-trips', requireAdmin, async (request, response, next) => {
   try {
-    const trip = validateSpecialTrip(request.body);
+    const tripInput = isPlainObject(request.body)
+      ? { ...request.body, image: await normalizeImageInput(request.body.image, processImage) }
+      : request.body;
+    const trip = validateSpecialTrip(tripInput);
     if (!trip) return response.status(400).json({ error: 'Enter a title, destination, and valid trip details.' });
 
     await pool.query(
@@ -401,13 +413,17 @@ app.post('/api/special-trips', requireAdmin, async (request, response, next) => 
     );
     response.status(201).json({ ok: true });
   } catch (error) {
+    if (respondToImageError(error, response)) return;
     next(error);
   }
 });
 
 app.put('/api/special-trips/:id', requireAdmin, validatePathId, async (request, response, next) => {
   try {
-    const trip = validateSpecialTrip({ ...request.body, id: request.params.id });
+    const tripInput = isPlainObject(request.body)
+      ? { ...request.body, id: request.params.id, image: await normalizeImageInput(request.body.image, processImage) }
+      : request.body;
+    const trip = validateSpecialTrip(tripInput);
     if (!trip) return response.status(400).json({ error: 'Enter a title, destination, and valid trip details.' });
 
     const result = await pool.query(
@@ -430,6 +446,7 @@ app.put('/api/special-trips/:id', requireAdmin, validatePathId, async (request, 
     if (result.rowCount === 0) return response.status(404).json({ error: 'Special trip not found.' });
     response.status(200).json({ ok: true });
   } catch (error) {
+    if (respondToImageError(error, response)) return;
     next(error);
   }
 });
@@ -445,7 +462,10 @@ app.delete('/api/special-trips/:id', requireAdmin, validatePathId, async (reques
 
 app.post('/api/trip-categories', requireAdmin, async (request, response, next) => {
   try {
-    const category = validateCategory(request.body);
+    const categoryInput = isPlainObject(request.body)
+      ? { ...request.body, image: await normalizeImageInput(request.body.image, processImage) }
+      : request.body;
+    const category = validateCategory(categoryInput);
     if (!category) return response.status(400).json({ error: 'Enter valid category details.' });
     await pool.query(
       `insert into trip_categories (id, title, subtitle, tagline, image, icon_name, accent_color, sort_order, is_active)
@@ -473,13 +493,15 @@ app.post('/api/trip-categories', requireAdmin, async (request, response, next) =
     );
     response.status(204).end();
   } catch (error) {
+    if (respondToImageError(error, response)) return;
     next(error);
   }
 });
 
 app.post('/api/destinations', requireAdmin, async (request, response, next) => {
   try {
-    const destination = validateDestination(request.body);
+    const destinationInput = await normalizeDestinationImages(request.body, processImage);
+    const destination = validateDestination(destinationInput);
     if (!destination) return response.status(400).json({ error: 'Enter valid destination details.' });
     await pool.query(
       `insert into destinations (
@@ -516,6 +538,7 @@ app.post('/api/destinations', requireAdmin, async (request, response, next) => {
     );
     response.status(204).end();
   } catch (error) {
+    if (respondToImageError(error, response)) return;
     next(error);
   }
 });
@@ -855,6 +878,31 @@ function logError(message, error) {
   });
 }
 
+async function normalizeImageInput(value, processImage) {
+  if (typeof value !== 'string' || value === '') return value;
+  if (value.startsWith('data:')) return processImageDataUrl(value);
+  if (value.startsWith('/')) return value;
+  if (value.length > 4096) throw new ImageInputError('The image URL is too long.');
+  return processImage(value);
+}
+
+async function normalizeDestinationImages(value, processImage) {
+  if (!isPlainObject(value)) return value;
+  const sourceImages = Array.isArray(value.images) ? value.images : value.image ? [value.image] : [];
+  if (sourceImages.length > 6) throw new ImageInputError('A destination can have up to 6 images.');
+  const images = [];
+  for (const image of sourceImages) {
+    images.push(await normalizeImageInput(image, processImage));
+  }
+  return { ...value, images, image: images[0] || '' };
+}
+
+function respondToImageError(error, response) {
+  if (!(error instanceof ImageInputError)) return false;
+  response.status(error.statusCode).json({ error: error.message });
+  return true;
+}
+
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -878,14 +926,20 @@ function isValidEmail(value) {
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-function isSafeImage(value, maxLength = 2048) {
-  if (typeof value !== 'string' || value.length > maxLength) return false;
+function isSafeImage(value, maxLength = 4096) {
+  if (typeof value !== 'string') return false;
   if (!value) return true;
-  if (value.startsWith('/')) return !value.startsWith('//');
-  if (/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(value)) return true;
+  if (value.startsWith('data:')) return validateImageDataUrl(value);
+  if (value.length > maxLength) return false;
+  if (value.startsWith('/')) return !value.startsWith('//') && !value.includes('\\') && !/\s/.test(value);
   try {
     const url = new URL(value);
-    return url.protocol === 'https:' || url.protocol === 'http:';
+    return url.protocol === 'https:' && !url.username && !url.password &&
+      (!url.port || url.port === '443') &&
+      !['localhost'].includes(url.hostname.toLowerCase()) &&
+      !url.hostname.toLowerCase().endsWith('.localhost') &&
+      !url.hostname.toLowerCase().endsWith('.local') &&
+      !url.hostname.toLowerCase().endsWith('.internal');
   } catch {
     return false;
   }
@@ -914,7 +968,7 @@ function validateDestination(value) {
   if (!isPlainObject(value) || !isValidId(value.id) || !isValidId(value.categoryId) ||
       !isText(value.name, 120, true)) return null;
   const images = Array.isArray(value.images) ? value.images : value.image ? [value.image] : [];
-  if (images.length > 6 || !images.every((image) => isSafeImage(image, 7_000_000))) return null;
+  if (images.length > 6 || !images.every((image) => isSafeImage(image))) return null;
   if (!isText(value.shortDescription ?? '', 300) || !isText(value.overview ?? '', 4000) ||
       !isText(value.duration ?? '', 80) || !isStringList(value.placesToVisit ?? [], 50, 200) ||
       !isStringList(value.highlights ?? [], 50, 200) || !isText(value.extraInfo ?? '', 2000) ||
