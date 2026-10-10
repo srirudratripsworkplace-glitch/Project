@@ -5,6 +5,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
 import pg from 'pg';
+import { readFileSync } from 'node:fs';
 import { isValidAdminPasswordHash, verifyAdminPassword } from './password.mjs';
 
 dotenv.config({ path: '.env.local', quiet: true });
@@ -646,14 +647,24 @@ export async function startApiServer({ env = process.env } = {}) {
   }
   const port = Number(env.PORT || env.LOCAL_API_PORT || 8787);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a valid TCP port.');
-  const pool = new Pool({
-    connectionString: env.DATABASE_URL,
-    connectionTimeoutMillis: 10000,
-    idleTimeoutMillis: 30000,
-    max: Number(env.PG_POOL_MAX || 10),
-    statement_timeout: 15000,
-    ssl: env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : undefined,
-  });
+ 
+const pool = new Pool({
+  connectionString: env.DATABASE_URL,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+  max: Number(env.PG_POOL_MAX || 10),
+  statement_timeout: 15000,
+  ssl: env.NODE_ENV === 'production'
+    ? {
+        ca: readFileSync(
+          new URL('../certs/supabase-prod-ca-2021.crt', import.meta.url),
+          'utf8'
+        ),
+        rejectUnauthorized: true,
+      }
+    : undefined,
+});
+
   pool.on('error', (error) => logError('Unexpected database pool error.', error));
   let app;
   try {
