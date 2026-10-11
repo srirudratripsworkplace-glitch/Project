@@ -1,4 +1,4 @@
-import { Facebook, Instagram, Mail, MapPin, Phone } from 'lucide-react';
+import { Instagram, Mail, MapPin, Phone } from 'lucide-react';
 import { businessConfig } from '../config/business';
 import { WhatsAppIcon } from './WhatsAppIcon';
 
@@ -19,11 +19,17 @@ export function Footer() {
             Travel information, destination discovery, and easy enquiry support for memorable journeys.
           </p>
           <div className="mt-5 flex gap-3">
-            <a className="footer-icon" href="#" aria-label="Instagram placeholder">
+            <a
+              className="footer-icon"
+              href="https://www.instagram.com/srirudra_trips?rpxt=MXI0MzZ2c2p0ZW00eg=="
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Sri Rudra Trips on Instagram"
+            >
               <Instagram size={18} />
             </a>
-            <a className="footer-icon" href="#" aria-label="Facebook placeholder">
-              <Facebook size={18} />
+            <a className="footer-icon" href={`mailto:${businessConfig.email}`} aria-label={`Email Sri Rudra Trips at ${businessConfig.email}`}>
+              <Mail size={18} />
             </a>
           </div>
         </div>

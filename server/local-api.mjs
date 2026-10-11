@@ -218,7 +218,7 @@ app.get('/api/special-trips', async (_request, response, next) => {
     const result = await pool.query(
       `select id, title, description, image, from_location, destination,
         trip_date::text as trip_date, trip_time::text as trip_time,
-        price::text as price, seats, badge, is_active
+        original_price::text as original_price, price::text as price, seats, badge, is_active
        from public.special_trips
        where is_active = true
        order by trip_date asc nulls last, created_at desc`,
@@ -252,7 +252,7 @@ app.get('/api/admin-data', requireAdmin, async (_request, response, next) => {
       pool.query(
         `select id, title, description, image, from_location, destination,
           trip_date::text as trip_date, trip_time::text as trip_time,
-          price::text as price, seats, badge, is_active
+          original_price::text as original_price, price::text as price, seats, badge, is_active
          from public.special_trips
          order by trip_date asc nulls last, created_at desc`,
       ),
@@ -403,8 +403,8 @@ app.post('/api/special-trips', requireAdmin, async (request, response, next) => 
     await pool.query(
       `insert into public.special_trips (
         id, title, description, image, from_location, destination, trip_date,
-        trip_time, price, seats, badge, is_active
-      ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        trip_time, original_price, price, seats, badge, is_active
+      ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       on conflict (id) do update set
         title = excluded.title,
         description = excluded.description,
@@ -413,6 +413,7 @@ app.post('/api/special-trips', requireAdmin, async (request, response, next) => 
         destination = excluded.destination,
         trip_date = excluded.trip_date,
         trip_time = excluded.trip_time,
+        original_price = excluded.original_price,
         price = excluded.price,
         seats = excluded.seats,
         badge = excluded.badge,
@@ -444,10 +445,11 @@ app.put('/api/special-trips/:id', requireAdmin, validatePathId, async (request, 
         destination = $6,
         trip_date = $7,
         trip_time = $8,
-        price = $9,
-        seats = $10,
-        badge = $11,
-        is_active = $12,
+        original_price = $9,
+        price = $10,
+        seats = $11,
+        badge = $12,
+        is_active = $13,
         updated_at = now()
       where id = $1`,
       specialTripValues(trip),
@@ -1082,6 +1084,7 @@ function toSpecialTrip(row) {
     destination: row.destination,
     tripDate: row.trip_date || '',
     tripTime: row.trip_time ? String(row.trip_time).slice(0, 5) : '',
+    originalPrice: row.original_price === null || row.original_price === undefined ? '' : String(row.original_price),
     price: row.price === null ? '' : String(row.price),
     seats: row.seats,
     badge: row.badge || '',
@@ -1093,7 +1096,10 @@ function validateSpecialTrip(value) {
   if (!isPlainObject(value) || !isValidId(value.id) || !isText(value.title, 120, true) ||
       !isText(value.destination, 160, true)) return null;
   if (!isOptionalDate(value.tripDate) || !isOptionalTime(value.tripTime)) return null;
-  if (!isOptionalNonNegativeNumber(value.price) || !isOptionalNonNegativeInteger(value.seats)) return null;
+  if (!isOptionalNonNegativeNumber(value.originalPrice) || !isOptionalNonNegativeNumber(value.price) ||
+      !isOptionalNonNegativeInteger(value.seats)) return null;
+  if (value.originalPrice !== '' && value.originalPrice != null &&
+      (value.price === '' || value.price == null || Number(value.originalPrice) <= Number(value.price))) return null;
   if (!isText(value.description ?? '', 2000) || !isSafeImage(value.image ?? '') ||
       !isText(value.fromLocation ?? '', 120) || !isText(value.badge ?? '', 80) ||
       typeof (value.isActive ?? false) !== 'boolean') return null;
@@ -1107,6 +1113,7 @@ function validateSpecialTrip(value) {
     destination: value.destination.trim(),
     tripDate: value.tripDate || null,
     tripTime: value.tripTime || null,
+    originalPrice: value.originalPrice === '' || value.originalPrice == null ? null : String(value.originalPrice),
     price: value.price === '' || value.price == null ? null : String(value.price),
     seats: value.seats === '' || value.seats == null ? null : Number(value.seats),
     badge: (value.badge ?? '').trim(),
@@ -1124,6 +1131,7 @@ function specialTripValues(trip) {
     trip.destination,
     trip.tripDate,
     trip.tripTime,
+    trip.originalPrice,
     trip.price,
     trip.seats,
     trip.badge,

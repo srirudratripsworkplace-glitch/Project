@@ -47,6 +47,7 @@ export interface SpecialTrip {
   destination: string;
   tripDate: string;
   tripTime: string;
+  originalPrice: string;
   price: string;
   seats: number | null;
   badge: string;
