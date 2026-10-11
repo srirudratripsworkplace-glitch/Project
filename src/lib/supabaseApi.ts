@@ -109,6 +109,10 @@ export async function saveEnquiry(payload: EnquiryPayload) {
   return result;
 }
 
+export async function deleteEnquiry(id: string) {
+  await request(`/api/enquiries/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export async function createSpecialTrip(trip: SpecialTrip) {
   await request('/api/special-trips', {
     method: 'POST',

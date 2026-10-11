@@ -105,6 +105,7 @@ describe('public API access controls and validation', () => {
       ['/api/customer-reviews', 'POST', {}],
       ['/api/customer-reviews/test-review', 'PUT', {}],
       ['/api/customer-reviews/test-review', 'DELETE'],
+      ['/api/enquiries/00000000-0000-4000-8000-000000000001', 'DELETE'],
     ];
     for (const [path, method, body] of requests) {
       const response = await apiRequest(api.url, path, { method, body });
@@ -232,6 +233,28 @@ describe('public API access controls and validation', () => {
     expect(api.pool.query).toHaveBeenCalledWith(expect.stringContaining('insert into destinations'), expect.any(Array));
   });
 
+  it('replaces removed destination images in the saved database field', async () => {
+    api = await startTestApi({ processImage: async (image) => image });
+    const { cookie } = await signIn(api.url);
+    const firstImage = 'https://images.example/first.webp';
+    const secondImage = 'https://images.example/second.webp';
+    const thirdImage = 'https://images.example/third.webp';
+    const destination = {
+      id: 'image-removal-test',
+      categoryId: 'test-category',
+      name: 'Image removal test',
+      images: [firstImage, secondImage, thirdImage],
+    };
+
+    expect((await apiRequest(api.url, '/api/destinations', { method: 'POST', cookie, body: destination })).status).toBe(204);
+    expect((await apiRequest(api.url, '/api/destinations', {
+      method: 'POST',
+      cookie,
+      body: { ...destination, images: [firstImage, thirdImage] },
+    })).status).toBe(204);
+    expect(api.pool.query.mock.calls.at(-1)[1][3]).toBe(JSON.stringify([firstImage, thirdImage]));
+  });
+
   it('normalizes submitted HTTPS image URLs before storing them', async () => {
     const processImage = vi.fn(async () => imageDataUrl);
     api = await startTestApi({ processImage });
@@ -270,6 +293,19 @@ describe('public API access controls and validation', () => {
     });
     expect(response.status).toBe(400);
     expect(api.pool.query).not.toHaveBeenCalled();
+  });
+
+  it('allows administrators to delete enquiries and rejects malformed identifiers', async () => {
+    api = await startTestApi();
+    const { cookie } = await signIn(api.url);
+    const invalidResponse = await apiRequest(api.url, '/api/enquiries/not-a-uuid', { method: 'DELETE', cookie });
+    expect(invalidResponse.status).toBe(400);
+    expect(api.pool.query).not.toHaveBeenCalled();
+
+    const id = '00000000-0000-4000-8000-000000000001';
+    const response = await apiRequest(api.url, `/api/enquiries/${id}`, { method: 'DELETE', cookie });
+    expect(response.status).toBe(204);
+    expect(api.pool.query).toHaveBeenCalledWith('delete from enquiries where id = $1', [id]);
   });
 
   it('sets production admin cookies as secure, HTTP-only and cross-origin capable', async () => {

@@ -81,12 +81,12 @@ export function HappyCustomers({ reviews }: { reviews: CustomerReview[] }) {
       <div className="relative mx-auto max-w-7xl">
         <div className="mx-auto max-w-2xl text-center">
           <p className="eyebrow mb-2">Good journeys. Great company.</p>
-          <h2 className="font-display text-3xl font-bold text-ocean-950 sm:text-4xl">Happy Customers of Srirudra</h2>
+          <h2 className="font-display text-3xl font-bold text-ocean-950 sm:text-4xl">Happy Customers of Sri Rudra</h2>
           <p className="mx-auto mt-2 text-sm leading-6 text-slate-600">
-            “Every journey becomes special when you travel with Srirudra.”
+            “Every journey becomes special when you travel with Sri Rudra.”
           </p>
           <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-ocean-100 bg-white/80 px-3 py-1 text-[0.65rem] font-semibold text-slate-500">
-            <Quote size={12} className="text-ocean-600" /> Customer experiences from trips with Srirudra
+            <Quote size={12} className="text-ocean-600" /> Customer experiences from trips with Sri Rudra
           </div>
         </div>
 

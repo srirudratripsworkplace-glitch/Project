@@ -48,7 +48,7 @@ export function isValidPhoneNumber(phone: string) {
 
 export function buildWhatsAppMessage(payload: WhatsAppEnquiry) {
   if ('type' in payload && payload.type === 'special-trip') {
-    return `Srirudra Trips - Special Trip Enquiry
+    return `Sri Rudra Trips - Special Trip Enquiry
 
 Special Trip:
 ${payload.trip}
@@ -69,7 +69,7 @@ ${payload.message || 'Please share more details about this trip.'}`;
   }
 
   if ('type' in payload && payload.type === 'airport-travel') {
-    return `Srirudra Trips - Airport Travel Enquiry
+    return `Sri Rudra Trips - Airport Travel Enquiry
 
 Travel Type:
 ${payload.travelType}
@@ -102,7 +102,7 @@ Message:
 ${payload.message || 'Please share more details about airport travel.'}`;
   }
 
-  return `Srirudra Trips - Available Trip Enquiry
+  return `Sri Rudra Trips - Available Trip Enquiry
 
 Trip:
 ${payload.destination}

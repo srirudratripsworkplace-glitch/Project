@@ -18,10 +18,10 @@ export function About() {
           </div>
         </div>
         <div>
-          <p className="eyebrow mb-1.5 text-xs sm:mb-2 sm:text-sm">About Srirudra Trips</p>
-          <h2 className="font-display text-2xl font-bold leading-tight text-ocean-950 sm:text-4xl">A better way to find your next getaway</h2>
+          <p className="eyebrow mb-1.5 text-xs sm:mb-2 sm:text-sm">About Sri Rudra Trips</p>
+          <h2 className="font-display text-2xl font-bold leading-tight text-ocean-950 sm:text-4xl">Travel packages and easy holiday planning for your next getaway</h2>
           <p className="mt-2 max-w-2xl text-sm leading-5 text-slate-600 sm:mt-3 sm:text-base sm:leading-6">
-            Browse destinations and message us when you are ready to plan.
+            Based in East London, Sri Rudra Trips shares UK sightseeing trips, holiday experiences and airport travel options. Whether you search for Srirudra Trips or Sri Rudra tours and travel, browse journeys from the UK to Bath, Cornwall, Wales and Scotland, then enquire directly.
           </p>
           <div className="mt-3 grid grid-cols-3 gap-2 sm:mt-5 sm:gap-3 lg:grid-cols-1 xl:grid-cols-3">
             <div className="flex flex-col items-center gap-1.5 rounded-[8px] border border-ocean-100 bg-ocean-50/70 p-2 text-center sm:flex-row sm:gap-3 sm:p-3">

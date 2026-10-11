@@ -3,7 +3,7 @@ import { WhatsAppIcon } from './WhatsAppIcon';
 import { createPortal } from 'react-dom';
 
 export function WhatsAppButton() {
-  const message = encodeURIComponent('Hello Srirudra Trips, I would like to enquire about a trip.');
+  const message = encodeURIComponent('Hello Sri Rudra Trips, I would like to enquire about a trip.');
 
   return createPortal(
     <a

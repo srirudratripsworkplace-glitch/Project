@@ -3,6 +3,7 @@ import { ArrowLeft, Eye, EyeOff, ImagePlus, LogOut, RefreshCw, Save, Trash2, X }
 import type { CustomerReview, Destination, Enquiry, SpecialTrip, TripCategory } from '../data/destinations';
 import {
   createCustomerReview,
+  deleteEnquiry,
   deleteCustomerReview,
   deleteCategory,
   deleteDestination,
@@ -334,6 +335,17 @@ export function AdminPage() {
     }
   }
 
+  async function removeEnquiry(enquiry: Enquiry) {
+    if (!window.confirm(`Delete the enquiry from "${enquiry.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteEnquiry(enquiry.id);
+      setStatus('Enquiry deleted.');
+      await loadAdminData();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Could not delete enquiry.');
+    }
+  }
+
   if (!isUnlocked) {
     return (
       <main className="grid min-h-screen place-items-center bg-ocean-950 px-4 text-white">
@@ -550,7 +562,7 @@ export function AdminPage() {
                 value={destinationForm.image.startsWith('data:') ? '' : destinationForm.image}
                 onChange={(image) => setDestinationForm({ ...destinationForm, image, images: image ? [image, ...(destinationForm.images || []).slice(1)] : destinationForm.images?.slice(1) || [] })}
               />
-              <p className="mt-2 text-xs text-slate-500">Upload up to 6 photos, each no larger than 2 MB after processing. You can preview and remove them here.</p>
+              <p className="mt-2 text-xs text-slate-500">Upload up to 6 photos, each no larger than 2 MB after processing. Removed photos are deleted from the saved place and website when you save.</p>
             </div>
             <TextInput
               label="Short Description"
@@ -595,7 +607,11 @@ export function AdminPage() {
                   {categoryDestinations.map((destination) => (
                     <div key={destination.id} className="flex items-center justify-between gap-3 rounded-[8px] bg-stone-50 p-3">
                       <div className="flex min-w-0 items-center gap-3">
-                        {destination.image && <img src={destination.image} alt="" className="h-11 w-11 shrink-0 rounded-[6px] object-cover" />}
+                        <div className="flex shrink-0 gap-1">
+                          {(destination.images?.length ? destination.images : [destination.image].filter(Boolean)).map((image, index) => (
+                            <img key={`${destination.id}-${index}`} src={image} alt={`${destination.name} photo ${index + 1}`} className="h-11 w-11 rounded-[6px] object-cover" />
+                          ))}
+                        </div>
                         <div className="min-w-0">
                           <p className="truncate font-semibold">{destination.name}</p>
                           <p className="text-xs text-slate-500">{destination.images?.length || (destination.image ? 1 : 0)} photo(s)</p>
@@ -707,6 +723,7 @@ export function AdminPage() {
                   <th className="px-3 py-3">Phone</th>
                   <th className="px-3 py-3">Destination</th>
                   <th className="px-3 py-3">Message</th>
+                  <th className="px-3 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -717,8 +734,18 @@ export function AdminPage() {
                     <td className="px-3 py-3">{enquiry.phone}</td>
                     <td className="px-3 py-3">{enquiry.destination}</td>
                     <td className="px-3 py-3">{enquiry.message}</td>
+                    <td className="px-3 py-3">
+                      <button type="button" className="inline-flex items-center gap-1 font-semibold text-red-700" onClick={() => void removeEnquiry(enquiry)}>
+                        <Trash2 size={15} /> Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
+                {enquiries.length === 0 && (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-500" colSpan={6}>No customer enquiries yet.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

@@ -7,19 +7,15 @@ import { WhatsAppIcon } from './WhatsAppIcon';
 
 interface DestinationDetailsProps {
   destination: Destination | null;
-  categoryImage?: string;
-  fallbackImage?: string;
   onClose: () => void;
   onEnquire: (destinationName: string) => void;
 }
 
-export function DestinationDetails({ destination, categoryImage, fallbackImage, onClose, onEnquire }: DestinationDetailsProps) {
+export function DestinationDetails({ destination, onClose, onEnquire }: DestinationDetailsProps) {
   if (!destination) return null;
 
   const destinationImages = destination.images?.length ? destination.images : [destination.image].filter(Boolean);
-  const secondImage = categoryImage && categoryImage !== destinationImages[0] ? categoryImage : fallbackImage;
-  const galleryImages = [...destinationImages, ...(secondImage && !destinationImages.includes(secondImage) ? [secondImage] : [])];
-  const quickMessage = encodeURIComponent(`Hello Srirudra Trips, I would like to enquire about ${destination.name}.`);
+  const quickMessage = encodeURIComponent(`Hello Sri Rudra Trips, I would like to enquire about ${destination.name}.`);
 
   return (
     <div className="fixed inset-0 z-[80] overflow-y-auto bg-ocean-900/70 p-3 backdrop-blur-sm" role="dialog" aria-modal="true">
@@ -44,8 +40,8 @@ export function DestinationDetails({ destination, categoryImage, fallbackImage, 
 
         <div className="grid gap-5 p-4 sm:gap-8 sm:p-8 lg:grid-cols-[1.4fr_0.8fr]">
           <div>
-            {galleryImages.length > 1 && (
-              <DestinationGallery key={destination.id} name={destination.name} images={galleryImages} />
+            {destinationImages.length > 1 && (
+              <DestinationGallery key={destination.id} name={destination.name} images={destinationImages} />
             )}
             <h3 className="text-xl font-bold text-ocean-900">Overview</h3>
             <p className="mt-2 text-sm leading-6 text-slate-650 sm:mt-3 sm:text-base sm:leading-7">{destination.overview}</p>

@@ -22,16 +22,16 @@ export function SplashScreen({ isExiting }: SplashScreenProps) {
       <div className="absolute left-1/2 top-[18%] h-[58vh] w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-white/25 to-transparent" />
       <div className="absolute bottom-12 left-1/2 h-28 w-[min(76vw,520px)] -translate-x-1/2 rounded-[50%] border-t border-white/25" />
 
-      <div className="relative flex w-full max-w-md flex-col items-center text-center splash-enter" role="status" aria-label="Loading Srirudra Trips">
+      <div className="relative flex w-full max-w-md flex-col items-center text-center splash-enter" role="status" aria-label="Loading Sri Rudra Trips">
         <div className="relative">
           <div className="absolute -inset-4 rounded-full bg-sunrise/20 blur-2xl" />
           <img
             src={logo}
-            alt="Srirudra Trips logo"
+            alt="Sri Rudra Trips logo"
             className="relative h-36 w-36 rounded-2xl bg-white object-contain p-1 shadow-2xl ring-4 ring-white/25 min-[390px]:h-44 min-[390px]:w-44 sm:h-52 sm:w-52"
           />
         </div>
-        <p className="mt-7 text-xs font-bold uppercase tracking-[0.34em] text-sunrise">Srirudra Trips</p>
+        <p className="mt-7 text-xs font-bold uppercase tracking-[0.34em] text-sunrise">Sri Rudra Trips</p>
         <h1 className="mt-3 font-display text-3xl font-bold leading-tight tracking-normal text-white min-[390px]:text-4xl sm:text-5xl">
           Your Journey Starts Here
         </h1>

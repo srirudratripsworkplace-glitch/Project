@@ -330,6 +330,15 @@ app.post('/api/enquiries', enquiryLimiter, async (request, response, next) => {
   }
 });
 
+app.delete('/api/enquiries/:id', requireAdmin, validateReviewId, async (request, response, next) => {
+  try {
+    await pool.query('delete from enquiries where id = $1', [request.params.id]);
+    response.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post('/api/customer-reviews', requireAdmin, async (request, response, next) => {
   try {
     const reviewInput = isPlainObject(request.body)
@@ -568,7 +577,7 @@ async function sendEnquiryEmail(enquiry) {
     await mailer.sendMail({
       from: env.ENQUIRY_FROM_EMAIL,
       to: enquiryToEmail,
-      subject: 'New Srirudra Trips enquiry',
+      subject: 'New Sri Rudra Trips enquiry',
       text: [
         `Enquiry ID: ${enquiry.id}`,
         `Submitted: ${new Date(enquiry.createdAt).toISOString()}`,

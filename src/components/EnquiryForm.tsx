@@ -84,7 +84,7 @@ export function EnquiryForm({ destinations, preferredDestination }: EnquiryFormP
           <p className="eyebrow mb-2 text-sunrise">Contact & Enquiry</p>
           <h2 className="font-display text-3xl font-bold tracking-normal sm:text-4xl lg:text-5xl">Tell us where you want to go</h2>
           <p className="mt-3 max-w-md text-sm leading-6 text-white/78 sm:text-base sm:leading-7">
-            Fill in your trip details and submit them to Srirudra Trips. Our team will contact you soon.
+            Fill in your trip details and submit them to Sri Rudra Trips. Our team will contact you soon.
           </p>
         </div>
 

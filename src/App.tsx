@@ -136,8 +136,6 @@ export default function App() {
       <WhatsAppButton />
       <DestinationDetails
         destination={selectedDestination}
-        categoryImage={categories.find((category) => category.id === selectedDestination?.categoryId)?.image}
-        fallbackImage={siteImages.hero}
         onClose={() => setSelectedDestination(null)}
         onEnquire={(destinationName) => {
           setPreferredDestination(destinationName);
