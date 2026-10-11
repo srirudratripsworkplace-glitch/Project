@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, ImagePlus, LogOut, RefreshCw, Save, Trash2, X } from 'lucide-react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Eye, EyeOff, ImagePlus, LogOut, Pencil, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import type { CustomerReview, Destination, Enquiry, SpecialTrip, TripCategory } from '../data/destinations';
 import {
   createCustomerReview,
@@ -91,6 +91,7 @@ export function AdminPage() {
   const [editingCustomerReviewId, setEditingCustomerReviewId] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
+  const destinationFormRef = useRef<HTMLFormElement>(null);
 
   const groupedDestinations = useMemo(
     () =>
@@ -223,6 +224,21 @@ export function AdminPage() {
     const images = (destinationForm.images?.length ? destinationForm.images : [destinationForm.image].filter(Boolean))
       .filter((_, imageIndex) => imageIndex !== index);
     setDestinationForm({ ...destinationForm, image: images[0] || '', images });
+  }
+
+  function editDestination(destination: Destination) {
+    setDestinationForm({
+      ...destination,
+      images: destination.images?.length ? [...destination.images] : [destination.image].filter(Boolean),
+    });
+    setError('');
+    setStatus(`Editing ${destination.name}. Add or remove photos, then update the place to publish your changes.`);
+    destinationFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function cancelDestinationEdit() {
+    setDestinationForm({ ...emptyDestination, categoryId: categories[0]?.id || '' });
+    setStatus('');
   }
 
   async function addSpecialTripImage(file: File | undefined) {
@@ -511,7 +527,15 @@ export function AdminPage() {
 
         <section className="rounded-[8px] bg-white p-5 shadow-soft">
           <h2 className="text-xl font-bold text-ocean-900">Places</h2>
-          <form className="mt-5 grid gap-4" onSubmit={saveDestination}>
+          <form ref={destinationFormRef} className="mt-5 grid scroll-mt-6 gap-4" onSubmit={saveDestination}>
+            {destinationForm.id && (
+              <div className="flex items-center justify-between gap-3 rounded-[8px] bg-ocean-50 px-4 py-3">
+                <p className="font-semibold text-ocean-900">Editing {destinationForm.name}</p>
+                <button type="button" className="text-sm font-bold text-ocean-800 underline" onClick={cancelDestinationEdit}>
+                  Cancel
+                </button>
+              </div>
+            )}
             <label>
               <span className="mb-2 block text-sm font-bold">Category</span>
               <select value={destinationForm.categoryId} onChange={(event) => setDestinationForm({ ...destinationForm, categoryId: event.target.value })} required>
@@ -579,7 +603,7 @@ export function AdminPage() {
             <TextArea label="Extra Info" value={destinationForm.extraInfo} onChange={(extraInfo) => setDestinationForm({ ...destinationForm, extraInfo })} />
             <Toggle checked={destinationForm.isActive} onChange={(isActive) => setDestinationForm({ ...destinationForm, isActive })} />
             <button className="btn-primary justify-center" type="submit">
-              <Save size={17} /> Save Place
+              <Save size={17} /> {destinationForm.id ? 'Update Place' : 'Save Place'}
             </button>
           </form>
         </section>
@@ -618,10 +642,11 @@ export function AdminPage() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <button className="text-ocean-800" onClick={() => setDestinationForm(destination)} aria-label="Edit place">
-                          <Save size={16} />
+                        <button type="button" className="inline-flex items-center gap-1 rounded-[6px] bg-ocean-100 px-2 py-1 text-sm font-bold text-ocean-800 hover:bg-ocean-200" onClick={() => editDestination(destination)}>
+                          <Pencil size={16} />
+                          Edit
                         </button>
-                        <button className="text-red-700" onClick={() => void deleteDestination(destination.id).then(loadAdminData)} aria-label="Delete place">
+                        <button type="button" className="text-red-700" onClick={() => void deleteDestination(destination.id).then(loadAdminData)} aria-label="Delete place">
                           <Trash2 size={16} />
                         </button>
                       </div>
