@@ -32,9 +32,9 @@ export function SplashScreen({ isExiting }: SplashScreenProps) {
           />
         </div>
         <p className="mt-7 text-xs font-bold uppercase tracking-[0.34em] text-sunrise">Sri Rudra Trips</p>
-        <h1 className="mt-3 font-display text-3xl font-bold leading-tight tracking-normal text-white min-[390px]:text-4xl sm:text-5xl">
+        <p className="mt-3 font-display text-3xl font-bold leading-tight tracking-normal text-white min-[390px]:text-4xl sm:text-5xl">
           Your Journey Starts Here
-        </h1>
+        </p>
         <p className="mt-3 max-w-sm text-sm leading-6 text-white/78 sm:text-base">
           Scenic destinations, simple planning, and friendly travel guidance.
         </p>

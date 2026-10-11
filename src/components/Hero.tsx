@@ -27,8 +27,7 @@ export function Hero({ heroImage, mobileHeroImage }: HeroProps) {
             <Sparkles size={13} aria-hidden="true" /> Sri Rudra Trips
           </p>
           <h1 className="max-w-[15ch] font-sans text-[2.05rem] font-extrabold leading-[1.03] tracking-[-0.055em] min-[390px]:text-[2.2rem] sm:max-w-3xl sm:font-display sm:text-6xl sm:font-bold sm:leading-[1.06] sm:tracking-normal lg:text-7xl">
-            <span className="sm:hidden">Tour packages<br /><span className="text-[#ffe2a4]">for your next escape.</span></span>
-            <span className="hidden sm:inline">Travel packages for memorable trips</span>
+            Sri Rudra Trips <span className="text-[#ffe2a4]">– Discover Your Next Journey</span>
           </h1>
           <p className="mt-2.5 max-w-[32rem] font-sans text-[0.88rem] font-normal leading-6 tracking-[0.015em] text-white/95 sm:mt-6 sm:font-display sm:text-lg sm:leading-8">
             Discover sightseeing trips, holiday experiences, and travel guidance designed around your next journey.
