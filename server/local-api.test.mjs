@@ -193,64 +193,6 @@ describe('public API access controls and validation', () => {
     expect(api.pool.query).toHaveBeenCalledWith(expect.stringContaining('insert into trip_categories'), expect.any(Array));
   });
 
-  it('returns and saves special-trip original and discounted prices', async () => {
-    const pool = makePool(async (sql) => {
-      if (sql === 'select 1') return { rows: [{ '?column?': 1 }] };
-      if (sql.includes('from public.special_trips')) {
-        return {
-          rows: [{
-            id: 'discount-trip',
-            title: 'Discount trip',
-            description: '',
-            image: '',
-            from_location: 'London',
-            destination: 'Bath',
-            trip_date: null,
-            trip_time: null,
-            original_price: '120.00',
-            price: '85.00',
-            seats: null,
-            badge: '',
-            is_active: true,
-          }],
-        };
-      }
-      return { rows: [], rowCount: 1 };
-    });
-    api = await startTestApi({ pool });
-    const publicTrips = await apiRequest(api.url, '/api/special-trips');
-    expect(await publicTrips.json()).toEqual([expect.objectContaining({
-      id: 'discount-trip',
-      originalPrice: '120.00',
-      price: '85.00',
-    })]);
-
-    const { cookie } = await signIn(api.url);
-    const trip = {
-      id: 'new-discount-trip',
-      title: 'New discount trip',
-      destination: 'Bath',
-      originalPrice: '120',
-      price: '85',
-      isActive: true,
-    };
-    const response = await apiRequest(api.url, '/api/special-trips', { method: 'POST', cookie, body: trip });
-    expect(response.status).toBe(201);
-    expect(pool.query).toHaveBeenCalledWith(
-      expect.stringContaining('original_price, price'),
-      expect.arrayContaining(['new-discount-trip', '120', '85']),
-    );
-
-    const queryCount = pool.query.mock.calls.length;
-    const invalidResponse = await apiRequest(api.url, '/api/special-trips', {
-      method: 'POST',
-      cookie,
-      body: { ...trip, id: 'invalid-discount-trip', price: '120' },
-    });
-    expect(invalidResponse.status).toBe(400);
-    expect(pool.query).toHaveBeenCalledTimes(queryCount);
-  });
-
   it('accepts a 2 MB base64 image and rejects an image larger than 2 MB', async () => {
     api = await startTestApi();
     const { cookie } = await signIn(api.url);

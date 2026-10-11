@@ -61,7 +61,6 @@ create table if not exists public.special_trips (
   destination text not null,
   trip_date date,
   trip_time time,
-  original_price numeric(10, 2) check (original_price is null or original_price >= 0),
   price numeric(10, 2) check (price is null or price >= 0),
   seats integer check (seats is null or seats >= 0),
   badge text not null default '',
@@ -69,9 +68,6 @@ create table if not exists public.special_trips (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
-alter table public.special_trips
-  add column if not exists original_price numeric(10, 2) check (original_price is null or original_price >= 0);
 
 alter table public.trip_categories enable row level security;
 alter table public.destinations enable row level security;

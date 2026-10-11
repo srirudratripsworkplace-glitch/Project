@@ -136,11 +136,8 @@ export function SpecialTrips({ trips, error }: SpecialTripsProps) {
                     </div>
                     <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#eadfce] pt-4">
                       <div>
-                        <p className="text-[0.65rem] font-bold uppercase tracking-wider text-slate-700">{trip.price ? (trip.originalPrice ? 'Special price' : 'Trip price') : 'Ask us for details'}</p>
-                        {trip.originalPrice && trip.price && (
-                          <p className="mt-0.5 text-sm font-semibold text-slate-500 line-through">{formatPrice(trip.originalPrice)}</p>
-                        )}
-                        {trip.price && <p className="text-lg font-extrabold text-[#63384e]">{formatPrice(trip.price)}</p>}
+                        <p className="text-[0.65rem] font-bold uppercase tracking-wider text-slate-700">{trip.price ? 'Trip price' : 'Ask us for details'}</p>
+                        {trip.price && <p className="mt-0.5 text-lg font-extrabold text-[#63384e]">{formatPrice(trip.price)}</p>}
                       </div>
                       <button className="btn-primary min-h-11 justify-center bg-[#63384e] px-4 py-2.5 text-xs text-white shadow-md shadow-[#63384e]/20 hover:bg-[#49273a] focus:ring-[#e8d5df] sm:text-sm" onClick={() => { setSelectedTrip(trip); setCountryCode('+44'); setPhoneNumber(''); setStatus(''); }}>
                         Enquire <ArrowRight size={16} />

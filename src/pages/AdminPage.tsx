@@ -57,7 +57,6 @@ const emptySpecialTrip: SpecialTrip = {
   destination: '',
   tripDate: '',
   tripTime: '',
-  originalPrice: '',
   price: '',
   seats: null,
   badge: '',
@@ -451,11 +450,7 @@ export function AdminPage() {
               <input type="time" value={specialTripForm.tripTime} onChange={(event) => setSpecialTripForm({ ...specialTripForm, tripTime: event.target.value })} />
             </label>
             <label>
-              <span className="mb-2 block text-sm font-bold">Original price (£)</span>
-              <input type="number" min="0" step="0.01" value={specialTripForm.originalPrice} onChange={(event) => setSpecialTripForm({ ...specialTripForm, originalPrice: event.target.value })} />
-            </label>
-            <label>
-              <span className="mb-2 block text-sm font-bold">Discount price (£)</span>
+              <span className="mb-2 block text-sm font-bold">Price (£)</span>
               <input type="number" min="0" step="0.01" value={specialTripForm.price} onChange={(event) => setSpecialTripForm({ ...specialTripForm, price: event.target.value })} />
             </label>
             <label>
@@ -487,13 +482,7 @@ export function AdminPage() {
                   </div>
                   <p className="mt-1 text-sm text-slate-600">{trip.fromLocation ? `${trip.fromLocation} → ` : ''}{trip.destination}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {[
-                      trip.tripDate,
-                      trip.tripTime,
-                      trip.originalPrice && `Was ${formatPoundPrice(trip.originalPrice)}`,
-                      trip.price && `${trip.originalPrice ? 'Now ' : 'Price: '}${formatPoundPrice(trip.price)}`,
-                      trip.seats !== null && `${trip.seats} seats`,
-                    ].filter(Boolean).join(' · ') || 'No schedule or price set'}
+                    {[trip.tripDate, trip.tripTime, trip.price && `Price: ${formatPoundPrice(trip.price)}`, trip.seats !== null && `${trip.seats} seats`].filter(Boolean).join(' · ') || 'No schedule or price set'}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
