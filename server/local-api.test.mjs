@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { randomFillSync } from 'node:crypto';
+import { once } from 'node:events';
+import { createServer } from 'node:net';
 import sharp from 'sharp';
-import { closeApiServer, createApiApp } from './local-api.mjs';
+import { closeApiServer, createApiApp, startApiServer } from './local-api.mjs';
 import { ImageInputError } from './images.mjs';
 import { hashAdminPassword, isValidAdminPasswordHash, verifyAdminPassword } from './password.mjs';
 
@@ -442,6 +444,25 @@ describe('public API access controls and validation', () => {
       pool,
       env: { NODE_ENV: 'production', ADMIN_PASSWORD_HASH: adminPasswordHash, ADMIN_SESSION_SECRET: sessionSecret },
     })).toThrow(/CORS_ORIGINS/);
+  });
+});
+
+describe('API startup', () => {
+  it('rejects a listener failure instead of reporting successful startup', async () => {
+    const listener = createServer();
+    listener.listen(0);
+    await once(listener, 'listening');
+    try {
+      await expect(startApiServer({ env: {
+        NODE_ENV: 'test',
+        DATABASE_URL: 'postgresql://test:test@127.0.0.1:1/test',
+        PORT: String(listener.address().port),
+        ADMIN_PASSWORD_HASH: adminPasswordHash,
+        ADMIN_SESSION_SECRET: sessionSecret,
+      } })).rejects.toMatchObject({ code: 'EADDRINUSE' });
+    } finally {
+      await closeApi(listener);
+    }
   });
 });
 

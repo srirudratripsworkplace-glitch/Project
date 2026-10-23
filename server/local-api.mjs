@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
 import pg from 'pg';
 import { readFileSync } from 'node:fs';
+import { once } from 'node:events';
 import { ImageInputError, processImageDataUrl, processImageReference, validateImageDataUrl } from './images.mjs';
 import { isValidAdminPasswordHash, verifyAdminPassword } from './password.mjs';
 
@@ -705,9 +706,14 @@ const pool = new Pool({
     await pool.end();
     throw error;
   }
-  const server = app.listen(port, () => {
-    console.log(`Sri Rudra Trips API listening on port ${port}`);
-  });
+  const server = app.listen(port);
+  try {
+    await once(server, 'listening');
+  } catch (error) {
+    await pool.end();
+    throw error;
+  }
+  console.log(`Sri Rudra Trips API listening on port ${port}`);
   server.headersTimeout = 15_000;
   server.requestTimeout = 30_000;
   server.keepAliveTimeout = 5_000;
@@ -739,7 +745,11 @@ export async function closeApiServer(server, pool) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   startApiServer().catch((error) => {
-    console.error(error instanceof Error ? error.message : 'API startup failed.');
+    if (['DATABASE_URL', 'CORS_ORIGINS', 'Configure a valid ADMIN_PASSWORD_HASH', 'PORT must'].some((prefix) => error?.message?.startsWith(prefix))) {
+      console.error(error.message);
+    } else {
+      logError('API startup failed.', error);
+    }
     process.exitCode = 1;
   });
 }

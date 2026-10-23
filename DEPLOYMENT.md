@@ -51,6 +51,133 @@ Before manually submitting enquiries in local development, unset SMTP and WhatsA
 
 Use custom frontend and API hostnames under the same site (for example `www.example.com` and `api.example.com`) for reliable browser admin cookies. Production admin cookies are secure, HTTP-only, and `SameSite=None` for cross-origin API requests; browser privacy controls may block cookies when the frontend and API are on unrelated registrable domains. The API also returns a signed 12-hour admin token after successful login; the frontend keeps it in memory and sends it as a bearer token so admin requests still work when the browser blocks cookies. This fallback does not persist across page reloads, so the administrator must sign in again after a reload in browsers that block the cookie.
 
+## Hostinger backend deployment
+
+Keep the Vercel frontend and Supabase database as separate services. The API does not
+serve `dist/`, import frontend code, or need TypeScript/Vite to start.
+
+| Setting | Value |
+| --- | --- |
+| Application type | Express (Node.js web app) |
+| Node.js version | 22.x, at least 22.12.0 |
+| Root directory | Repository root (`./`) |
+| Package manager | npm |
+| Install command, if configurable | `npm ci --omit=dev` |
+| Build command | `npm run build:api` |
+| Entry file, relative to root | `server/local-api.mjs` |
+| Start command, if configurable | `npm start` |
+| Output directory, if required | `.` (source application, not `dist`) |
+
+The API build command checks backend syntax using Node.js; it does not compile or
+launch the app. Include `server/`, `certs/`, `package.json`, and `package-lock.json`
+in the runtime deployment. Install on Hostinger so native dependencies such as
+`sharp` match its Linux runtime; do not upload Windows `node_modules/`.
+
+`tsc: command not found` means the frontend build ran without the TypeScript
+development dependency available. Production installs can omit development
+dependencies. Use the backend build command here; Vercel continues to use
+`npm run build` with development dependencies installed (`npm ci --include=dev`).
+
+Configure these values privately in Hostinger's runtime environment:
+
+- `NODE_ENV=production`.
+- `DATABASE_URL`: the Supabase PostgreSQL connection URI. The API does not read
+  `.env.supabase`, `SUPABASE_DB_URL`, or individual `DB_*` settings. Prefer the
+  Supabase session pooler if the hosting network cannot reach the direct IPv6
+  database endpoint. Copy credentials from Supabase without logging them.
+- `ADMIN_PASSWORD_HASH`: valid output of `npm run hash:admin-password`, preserving
+  every literal `$` character; a plaintext password or placeholder prevents startup.
+- `ADMIN_SESSION_SECRET`: a random secret of at least 32 bytes.
+- `CORS_ORIGINS`: exact existing frontend origins, comma-separated with no trailing
+  slash, path, or wildcard. Use the Vercel/custom frontend origins, not the API URL.
+- Let Hostinger supply `PORT`; the API honors it before `LOCAL_API_PORT` and its
+  local default. Do not copy the local `.env.example` port into hosting settings.
+- `PG_POOL_MAX`: optional, default `10`; choose within the Supabase connection budget.
+- `TRUST_PROXY=true` only after confirming exactly one trusted proxy hop.
+- Optional SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
+  `ENQUIRY_FROM_EMAIL`, `ENQUIRY_TO_EMAIL`. Port 465 uses implicit TLS;
+  `SMTP_SECURE` is not read by the API.
+- Optional WhatsApp: `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
+  `WHATSAPP_BUSINESS_NUMBER`, `WHATSAPP_TEMPLATE_NAME`, `WHATSAPP_API_VERSION`.
+
+Production PostgreSQL connections verify TLS against
+`certs/supabase-prod-ca-2021.crt`. Keep that file in the deployment. Avoid SSL
+query parameters such as `sslmode`, `sslcert`, `sslkey`, and `sslrootcert` in
+`DATABASE_URL`: node-postgres can use them to replace the explicit SSL object.
+Do not disable certificate verification to bypass a connection failure.
+
+### Generate the admin password hash safely
+
+Run `npm run hash:admin-password` in your own interactive terminal (use
+`npm.cmd run hash:admin-password` in Windows PowerShell if execution policy blocks
+`npm.ps1`). Enter a unique password of 14 to 256 characters at the masked prompt.
+Do not pass the password as a command-line argument or paste it into chat.
+
+The generated value has this exact format:
+
+```text
+scrypt$16384$8$1$<32 hexadecimal salt characters>$<128 hexadecimal key characters>
+```
+
+The generator uses a cryptographically random 16-byte salt and Node.js scrypt with
+N=16384, r=8, p=1 and a 64-byte derived key. Paste only the value after
+`ADMIN_PASSWORD_HASH=` into hPanel's variable value field, with no surrounding
+quotes. Preserve literal `$` characters and keep the generated hash private.
+The API does not accept bcrypt, plaintext passwords, or arbitrary hash formats.
+
+Generate `ADMIN_SESSION_SECRET` privately with
+`node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`
+and paste the result into its separate hPanel variable. Do not commit either value.
+
+### Manual hPanel redeployment
+
+1. Before pushing, inspect which GitHub branch this Hostinger application deploys.
+   The local branch name alone does not prove which branch is configured in hPanel.
+   Obtain explicit approval for the commit, push, and production redeployment.
+   A push to a connected branch can deploy automatically.
+2. In hPanel, open **Websites**, then **Dashboard** beside
+   `white-hare-614328.hostingersite.com`. Open **Deployments** and select the failed
+   deployment to inspect its build logs. Open **Runtime logs** for startup errors.
+3. Open **Environment variables** and set the required runtime values listed above.
+   Paste values without quotes, click **Apply changes**, and verify that the saved
+   names and special characters are correct. Never use public `VITE_` variables for
+   backend credentials. Applying runtime variables may restart the production app;
+   do this only after approval.
+4. After the approved commit is pushed, choose **Deployments > Redeploy**. Confirm
+   the GitHub source repository and production branch, then set the build settings
+   from the table above. Keep the root at the repository root so the entry can find
+   `certs/` and the root package manifest. Do not select the Vite framework or `dist`.
+5. Confirm the settings and click **Redeploy** (or **Save and Redeploy**). GitHub
+   deployments use the latest code from the selected branch. Check the deployed
+   commit against the pushed commit and wait for the build to finish.
+6. Review **Runtime logs** for the listening message and run the read-only endpoint
+   checks below. If the dashboard logs are unavailable, use **File Manager** to open
+   `domains/white-hare-614328.hostingersite.com/hbuilds/current/nodejs/stderr.log`.
+
+Hostinger references: [redeployment](https://www.hostinger.com/support/how-to-redeploy-a-node-js-application/),
+[environment variables](https://www.hostinger.com/support/how-to-edit-or-add-environment-variables-after-deployment/),
+and [runtime logs](https://www.hostinger.com/support/how-to-use-node-js-runtime-logs-at-hostinger/).
+
+Before deploying, review build logs in hPanel under Deployments and runtime logs
+in its runtime log view or `domains/<domain>/hbuilds/current/nodejs/stderr.log`.
+A successful build alone does not establish that the process started. A 503 needs
+runtime evidence: check the entry file, required environment values, listener
+errors, dependencies, and hosting limits. `/` intentionally returns JSON 404;
+use `/health/live` for process health.
+
+After explicit deployment approval, verify the temporary URL:
+
+1. `GET https://white-hare-614328.hostingersite.com/health/live`: HTTP 200, `{"ok":true}`.
+2. `GET /health/ready`: HTTP 200 after a read-only `select 1` database check.
+3. `GET /api/trip-data`, `/api/special-trips`, `/api/customer-reviews`: HTTP 200.
+4. `GET /api/admin-data` without authentication: HTTP 401.
+5. Check CORS using an allowed frontend Origin header and inspect runtime logs.
+
+Do not submit enquiries or management requests as production smoke tests. Do not
+run migration/seed scripts, stop Render, or change `VITE_API_BASE_URL` during this
+verification. Pushing GitHub changes or redeploying requires approval because a
+connected branch may trigger automatic deployments.
+
 ## Database and deployment safety
 
 No deployment, database migration, seed, or production write is run by this project setup. Review and back up the target database before manually applying the schema. `supabase/seed-trips.sql` is sample/local content and must not be run against production unless explicitly reviewed and approved.
