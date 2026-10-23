@@ -4,7 +4,7 @@ import { randomFillSync } from 'node:crypto';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
 import sharp from 'sharp';
-import { closeApiServer, createApiApp, startApiServer } from './local-api.mjs';
+import { closeApiServer, createApiApp, startApiServer } from './api-app.mjs';
 import { ImageInputError } from './images.mjs';
 import { hashAdminPassword, isValidAdminPasswordHash, verifyAdminPassword } from './password.mjs';
 
@@ -450,7 +450,7 @@ describe('public API access controls and validation', () => {
 describe('API startup', () => {
   it('rejects a listener failure instead of reporting successful startup', async () => {
     const listener = createServer();
-    listener.listen(0);
+    listener.listen(0, '0.0.0.0');
     await once(listener, 'listening');
     try {
       await expect(startApiServer({ env: {

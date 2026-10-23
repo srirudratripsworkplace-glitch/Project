@@ -10,7 +10,7 @@
     "dev": "vite --host 0.0.0.0",
     "start": "node server/local-api.mjs",
     "start:api": "node server/local-api.mjs",
-    "build:api": "node --check server/local-api.mjs && node --check server/images.mjs && node --check server/password.mjs",
+    "build:api": "node --check server/local-api.mjs && node --check server/api-app.mjs && node --check server/images.mjs && node --check server/password.mjs",
     "hash:admin-password": "node server/hash-admin-password.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",

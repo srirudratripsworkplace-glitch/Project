@@ -73,6 +73,15 @@ launch the app. Include `server/`, `certs/`, `package.json`, and `package-lock.j
 in the runtime deployment. Install on Hostinger so native dependencies such as
 `sharp` match its Linux runtime; do not upload Windows `node_modules/`.
 
+`server/local-api.mjs` is the production bootstrap and starts the listener even
+when imported by a hosting launcher. Do not configure `server/api-app.mjs` as the
+entry: that module exports the factories for tests without starting a server.
+The bootstrap logs loading, configuration validation, binding, and listening
+phases with sanitized failures. It binds to `0.0.0.0` using Hostinger's `PORT`.
+Database and SMTP connections are not awaited before listening. Required admin
+and CORS configuration is still validated before the listener opens;
+`/health/ready` checks PostgreSQL separately with a read-only query.
+
 `tsc: command not found` means the frontend build ran without the TypeScript
 development dependency available. Production installs can omit development
 dependencies. Use the backend build command here; Vercel continues to use
