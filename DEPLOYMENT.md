@@ -25,6 +25,7 @@ Before manually submitting enquiries in local development, unset SMTP and WhatsA
 1. Take a database backup before applying schema changes.
 2. Review and apply `supabase/schema.sql` through the Supabase SQL editor or a controlled migration runner for full setup. The DDL uses `CREATE TABLE IF NOT EXISTS` and replaces policies on the affected tables; it does not drop tables or delete rows.
 3. Do not run `supabase/local-postgres.sql` or `supabase/seed-trips.sql` against production: the local setup script includes sample content.
+   To change only the Temples & Spiritual Tours cover on an existing database, apply `supabase/update-temple-category-cover.sql` in the Supabase SQL editor after deploying the frontend image.
 4. Do not enable broad public table grants or expose a database/service-role credential to Vite. Public PostgREST access is restricted by the RLS policies in `schema.sql`; administrator JWTs must carry the trusted `app_metadata.role = "admin"` claim.
 
 ## Vercel frontend

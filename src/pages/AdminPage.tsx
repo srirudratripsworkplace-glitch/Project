@@ -614,40 +614,38 @@ export function AdminPage() {
           <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {groupedDestinations.map(({ category, destinations: categoryDestinations }) => (
               <div key={category.id} className="rounded-[8px] border border-slate-200 p-4">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="font-bold text-ocean-900">{category.title}</h3>
                     <p className="text-sm text-slate-500">{category.isActive ? 'Published' : 'Hidden'}</p>
                   </div>
-                  <div className="flex gap-2">
-                    <button className="grid h-9 w-9 place-items-center rounded-[8px] bg-ocean-50 text-ocean-800" onClick={() => setCategoryForm(category)} aria-label="Edit category">
+                  <div className="flex shrink-0 gap-2">
+                    <button type="button" className="grid h-10 w-10 place-items-center rounded-[8px] bg-ocean-50 text-ocean-800" onClick={() => setCategoryForm(category)} aria-label="Edit category">
                       <Save size={16} />
                     </button>
-                    <button className="grid h-9 w-9 place-items-center rounded-[8px] bg-red-50 text-red-700" onClick={() => void deleteCategory(category.id).then(loadAdminData)} aria-label="Delete category">
+                    <button type="button" className="grid h-10 w-10 place-items-center rounded-[8px] bg-red-50 text-red-700" onClick={() => void deleteCategory(category.id).then(loadAdminData)} aria-label="Delete category">
                       <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
                 <div className="mt-4 space-y-2">
                   {categoryDestinations.map((destination) => (
-                    <div key={destination.id} className="flex items-center justify-between gap-3 rounded-[8px] bg-stone-50 p-3">
+                    <div key={destination.id} className="flex min-w-0 flex-col gap-3 rounded-[8px] bg-stone-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex shrink-0 gap-1">
-                          {(destination.images?.length ? destination.images : [destination.image].filter(Boolean)).map((image, index) => (
-                            <img key={`${destination.id}-${index}`} src={image} alt={`${destination.name} photo ${index + 1}`} className="h-11 w-11 rounded-[6px] object-cover" />
-                          ))}
-                        </div>
+                        {(destination.images?.[0] || destination.image) && (
+                          <img src={destination.images?.[0] || destination.image} alt={`${destination.name} photo`} className="h-11 w-11 shrink-0 rounded-[6px] object-cover" />
+                        )}
                         <div className="min-w-0">
-                          <p className="truncate font-semibold">{destination.name}</p>
+                          <p className="break-words font-semibold">{destination.name}</p>
                           <p className="text-xs text-slate-500">{destination.images?.length || (destination.image ? 1 : 0)} photo(s)</p>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button type="button" className="inline-flex items-center gap-1 rounded-[6px] bg-ocean-100 px-2 py-1 text-sm font-bold text-ocean-800 hover:bg-ocean-200" onClick={() => editDestination(destination)}>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        <button type="button" className="inline-flex min-h-10 items-center gap-1 rounded-[6px] bg-ocean-100 px-3 py-2 text-sm font-bold text-ocean-800 hover:bg-ocean-200" onClick={() => editDestination(destination)}>
                           <Pencil size={16} />
                           Edit
                         </button>
-                        <button type="button" className="text-red-700" onClick={() => void deleteDestination(destination.id).then(loadAdminData)} aria-label="Delete place">
+                        <button type="button" className="grid h-10 w-10 place-items-center rounded-[6px] bg-red-50 text-red-700" onClick={() => void deleteDestination(destination.id).then(loadAdminData)} aria-label={`Delete ${destination.name}`}>
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -747,7 +745,7 @@ export function AdminPage() {
 
         <section className="rounded-[8px] bg-white p-5 shadow-soft lg:col-span-2">
           <h2 className="text-xl font-bold text-ocean-900">Customer Enquiries</h2>
-          <div className="mt-5 overflow-x-auto">
+          <div className="mt-5 hidden overflow-x-auto sm:block">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-ocean-50 text-ocean-900">
                 <tr>
@@ -781,6 +779,39 @@ export function AdminPage() {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="mt-4 space-y-3 sm:hidden">
+            {enquiries.map((enquiry) => (
+              <article key={enquiry.id} className="min-w-0 rounded-[8px] border border-slate-200 p-3">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <h3 className="min-w-0 break-words font-bold text-ocean-900">{enquiry.name}</h3>
+                  <span className="shrink-0 rounded-full bg-ocean-50 px-2 py-1 text-xs font-semibold text-ocean-800">
+                    {enquiry.travellers} traveller{enquiry.travellers === '1' ? '' : 's'}
+                  </span>
+                </div>
+                <p className="mt-1 break-words text-xs text-slate-500">{new Date(enquiry.createdAt).toLocaleString()}</p>
+                <dl className="mt-3 grid gap-2 text-sm">
+                  <div className="min-w-0">
+                    <dt className="text-xs font-semibold text-slate-500">Phone</dt>
+                    <dd className="break-all">{enquiry.phone}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs font-semibold text-slate-500">Destination</dt>
+                    <dd className="break-words">{enquiry.destination}</dd>
+                  </div>
+                  {enquiry.message && (
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold text-slate-500">Message</dt>
+                      <dd className="break-words">{enquiry.message}</dd>
+                    </div>
+                  )}
+                </dl>
+                <button type="button" className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[6px] bg-red-50 px-3 py-2 font-semibold text-red-700" onClick={() => void removeEnquiry(enquiry)}>
+                  <Trash2 size={16} /> Delete enquiry
+                </button>
+              </article>
+            ))}
+            {enquiries.length === 0 && <p className="rounded-[8px] bg-stone-50 p-4 text-sm text-slate-500">No customer enquiries yet.</p>}
           </div>
         </section>
       </div>

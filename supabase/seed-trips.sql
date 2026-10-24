@@ -15,7 +15,7 @@ values
     'Temples & Spiritual Tours',
     'Faith - Culture - Peace',
     'Temples',
-    'https://images.unsplash.com/photo-1621831714462-bec8ed65b67f?auto=format&fit=crop&w=1200&q=80',
+    '/trips/skanda-vale-temple.jpg',
     'church',
     '#b66d00',
     1,
