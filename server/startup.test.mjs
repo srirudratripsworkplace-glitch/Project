@@ -24,7 +24,7 @@ function productionEnv(port) {
   });
 }
 
-it.each(['direct', 'imported by launcher'])(
+it.each(['direct', 'imported by launcher', 'required by Node 22 launcher'])(
   'production entry listens within three seconds when %s, with the database unavailable',
   async (mode) => {
     const reservation = createServer();
@@ -35,8 +35,24 @@ it.each(['direct', 'imported by launcher'])(
     // An empty working directory prevents dotenv from reading real local secrets.
     const cwd = await mkdtemp(join(tmpdir(), 'srirudra-startup-'));
     const env = productionEnv(port);
+    // A launcher may inspect listen() as soon as loading the entry completes.
+    // A detached dynamic import lets entry loading finish before listen is called.
+    const loadEntry = mode === 'required by Node 22 launcher'
+      ? `createRequire(import.meta.url)(${JSON.stringify(fileURLToPath(entry))});`
+      : `await import(${JSON.stringify(entry.href)});`;
     const args = mode === 'direct' ? [fileURLToPath(entry)]
-      : ['--input-type=module', '--eval', `import ${JSON.stringify(entry.href)};`];
+      : ['--input-type=module', '--eval', `
+        import { Server } from 'node:net';
+        import { createRequire } from 'node:module';
+        const originalListen = Server.prototype.listen;
+        let listenCalled = false;
+        Server.prototype.listen = function (...args) {
+          listenCalled = args[0] === Number(process.env.PORT) && args[1] === '0.0.0.0';
+          return Reflect.apply(originalListen, this, args);
+        };
+        ${loadEntry}
+        if (!listenCalled) throw new Error('Entry loading completed before listen() on the hosting port.');
+      `];
     const startedAt = performance.now();
     const child = spawn(process.execPath, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
     const exited = once(child, 'exit');

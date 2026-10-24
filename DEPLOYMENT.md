@@ -81,11 +81,22 @@ in the runtime deployment. Install on Hostinger so native dependencies such as
 `server/local-api.mjs` is the production bootstrap and starts the listener even
 when imported by a hosting launcher. Do not configure `server/api-app.mjs` as the
 entry: that module exports the factories for tests without starting a server.
-The bootstrap logs loading, configuration validation, binding, and listening
+The bootstrap logs module completion, configuration validation, binding, and listening
 phases with sanitized failures. It binds to `0.0.0.0` using Hostinger's `PORT`.
 Database and SMTP connections are not awaited before listening. Required admin
 and CORS configuration is still validated before the listener opens;
 `/health/ready` checks PostgreSQL separately with a read-only query.
+
+The entry statically imports the application and invokes startup during module
+evaluation. A detached dynamic import would let an importing launcher finish
+loading the entry before `listen()` is called. Keep this graph free of top-level
+await so Node 22 launchers using `require()` can also load the entry. Startup
+regressions cover direct execution, ESM import, and Node 22 require, including
+calling `listen()` on the assigned port before entry loading completes. Dependency
+load failures happen before the module-completion log; inspect runtime logs for
+missing packages or native binding errors. Configuration failures after that log
+are sanitized and exit nonzero. These checks do not prove a particular hosting
+launcher's implementation; confirm its deployed commit and runtime logs in hPanel.
 
 `tsc: command not found` means the frontend build ran without the TypeScript
 development dependency available. Production installs can omit development

@@ -1,8 +1,12 @@
 // Production entry: hosting launchers can import this module instead of running
 // it directly. Keep factories in api-app.mjs so tests never start a server by import.
-console.log('API startup: loading application modules.');
-import('./api-app.mjs')
-  .then(({ startApiServer }) => startApiServer())
+// Load dependencies before evaluating the entry so launchers cannot finish
+// loading it before startApiServer calls listen(). Avoid top-level await so
+// Node 22 launchers using require() can also load this ES module.
+import { startApiServer } from './api-app.mjs';
+
+console.log('API startup: application modules loaded.');
+startApiServer()
   .catch((error) => {
     // Log fixed configuration messages or a system error code, never raw errors
     // (which can contain database URLs, SMTP credentials, or connection details).
