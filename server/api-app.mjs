@@ -60,7 +60,7 @@ export function createApiApp({
   const sessionSecret = env.ADMIN_SESSION_SECRET;
   const cookieName = isProduction ? '__Host-srirudra-admin' : 'srirudra-admin';
   const smtpPort = Number(env.SMTP_PORT);
-  const enquiryToEmail = env.ENQUIRY_TO_EMAIL || 'srirudratripsworkplace@gmail.com';
+  const enquiryToEmail = 'srirudratrips@gmail.com';
   const whatsappBusinessNumber = (env.WHATSAPP_BUSINESS_NUMBER || '447405958896').replace(/\D/g, '');
   const emailNotificationsConfigured = Boolean(
     env.SMTP_HOST &&
@@ -347,12 +347,29 @@ app.post('/api/customer-reviews', requireAdmin, async (request, response, next) 
     const review = validateCustomerReview(reviewInput);
     if (!review) return response.status(400).json({ error: 'Enter a customer name and review, and upload a valid image.' });
 
-    const result = await pool.query(
-      `insert into public.customer_reviews (name, trip, review, image, is_active)
-       values ($1, $2, $3, $4, $5)
-       returning id, name, trip, review, image, is_active, created_at`,
-      [review.name, review.trip, review.review, review.image, review.isActive],
-    );
+    const client = await pool.connect();
+    let result;
+    try {
+      await client.query('begin');
+      await client.query('select pg_advisory_xact_lock(771, 10)');
+      const countResult = await client.query('select count(*)::int as count from public.customer_reviews');
+      if (countResult.rows[0].count >= 10) {
+        await client.query('rollback');
+        return response.status(409).json({ error: 'A maximum of 10 customer reviews can be added. Delete a review before adding another.' });
+      }
+      result = await client.query(
+        `insert into public.customer_reviews (name, trip, review, image, is_active)
+         values ($1, $2, $3, $4, $5)
+         returning id, name, trip, review, image, is_active, created_at`,
+        [review.name, review.trip, review.review, review.image, review.isActive],
+      );
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
     response.status(201).json(toCustomerReview(result.rows[0]));
   } catch (error) {
     if (respondToImageError(error, response)) return;

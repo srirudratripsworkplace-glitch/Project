@@ -73,6 +73,7 @@ const emptyCustomerReview: Omit<CustomerReview, 'id' | 'createdAt'> = {
 
 const maximumImageSize = 2 * 1024 * 1024;
 const maximumDestinationImageDataLength = 17_000_000;
+const maximumCustomerReviews = 10;
 
 export function AdminPage() {
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -660,7 +661,14 @@ export function AdminPage() {
 
         <section className="rounded-[8px] bg-white p-5 shadow-soft lg:col-span-2">
           <h2 className="text-xl font-bold text-ocean-900">Customer Reviews & Photos</h2>
-          <p className="mt-1 text-sm text-slate-600">Add customer-approved reviews and photos. Published entries appear on the website.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Add customer-approved reviews and photos. Published entries appear on the website. {customerReviews.length} of {maximumCustomerReviews} reviews added.
+          </p>
+          {customerReviews.length >= maximumCustomerReviews && !editingCustomerReviewId && (
+            <p className="mt-2 text-sm font-semibold text-amber-800" role="status">
+              You’ve reached the 10-review limit. Delete a review before adding another.
+            </p>
+          )}
           <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={saveCustomerReview}>
             <TextInput label="Customer name" value={customerReviewForm.name} onChange={(name) => setCustomerReviewForm({ ...customerReviewForm, name })} required />
             <TextInput label="Trip or destination" value={customerReviewForm.trip} onChange={(trip) => setCustomerReviewForm({ ...customerReviewForm, trip })} />
@@ -690,7 +698,7 @@ export function AdminPage() {
             </div>
             <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
               <Toggle checked={customerReviewForm.isActive} onChange={(isActive) => setCustomerReviewForm({ ...customerReviewForm, isActive })} />
-              <button className="btn-primary justify-center" type="submit">
+              <button className="btn-primary justify-center" type="submit" disabled={!editingCustomerReviewId && customerReviews.length >= maximumCustomerReviews}>
                 <Save size={17} /> {editingCustomerReviewId ? 'Update Review' : 'Save Review'}
               </button>
               {editingCustomerReviewId && (

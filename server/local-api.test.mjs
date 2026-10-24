@@ -18,7 +18,14 @@ const smallImage = await sharp({
 const imageDataUrl = `data:image/png;base64,${smallImage.toString('base64')}`;
 
 function makePool(queryImplementation) {
-  return { query: vi.fn(queryImplementation), end: vi.fn(async () => {}) };
+  return {
+    query: vi.fn(queryImplementation),
+    connect: vi.fn(async () => ({
+      query: vi.fn(queryImplementation),
+      release: vi.fn(),
+    })),
+    end: vi.fn(async () => {}),
+  };
 }
 
 async function startTestApi({ pool = makePool(async (sql) => {
@@ -427,6 +434,67 @@ describe('public API access controls and validation', () => {
     expect(response.status).toBe(201);
     expect(api.pool.query).toHaveBeenCalledWith(expect.stringContaining('insert into enquiries'), expect.any(Array));
     expect((await response.json()).notifications).toEqual({ email: 'failed', whatsapp: 'failed' });
+  });
+
+  it('prevents administrators from adding more than 10 customer reviews', async () => {
+    api = await startTestApi({
+      pool: makePool(async (sql) => {
+        if (sql.includes('count(*)') && sql.includes('public.customer_reviews')) return { rows: [{ count: 10 }] };
+        if (sql === 'select 1') return { rows: [{ '?column?': 1 }] };
+        return { rows: [], rowCount: 1 };
+      }),
+    });
+    const { cookie } = await signIn(api.url);
+    const response = await apiRequest(api.url, '/api/customer-reviews', {
+      method: 'POST',
+      cookie,
+      body: { name: 'Test Customer', text: 'A lovely trip.', image: imageDataUrl },
+    });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: 'A maximum of 10 customer reviews can be added. Delete a review before adding another.',
+    });
+    const client = await api.pool.connect.mock.results[0].value;
+    expect(client.query).toHaveBeenCalledWith('select pg_advisory_xact_lock(771, 10)');
+    expect(client.query).not.toHaveBeenCalledWith(expect.stringContaining('insert into public.customer_reviews'), expect.any(Array));
+    expect(client.query).toHaveBeenCalledWith('rollback');
+    expect(client.release).toHaveBeenCalledOnce();
+  });
+
+  it('creates a customer review when fewer than 10 exist', async () => {
+    api = await startTestApi({
+      pool: makePool(async (sql) => {
+        if (sql.includes('count(*)') && sql.includes('public.customer_reviews')) return { rows: [{ count: 9 }] };
+        if (sql.includes('insert into public.customer_reviews')) {
+          return {
+            rows: [{
+              id: 'review-uuid',
+              name: 'Test Customer',
+              trip: 'Bath',
+              review: 'A lovely trip.',
+              image: imageDataUrl,
+              is_active: true,
+              created_at: '2026-10-09T00:00:00.000Z',
+            }],
+            rowCount: 1,
+          };
+        }
+        if (sql === 'select 1') return { rows: [{ '?column?': 1 }] };
+        return { rows: [], rowCount: 1 };
+      }),
+    });
+    const { cookie } = await signIn(api.url);
+    const response = await apiRequest(api.url, '/api/customer-reviews', {
+      method: 'POST',
+      cookie,
+      body: { name: 'Test Customer', trip: 'Bath', text: 'A lovely trip.', image: imageDataUrl },
+    });
+    expect(response.status).toBe(201);
+    expect((await response.json()).id).toBe('review-uuid');
+    const client = await api.pool.connect.mock.results[0].value;
+    expect(client.query).toHaveBeenCalledWith('select pg_advisory_xact_lock(771, 10)');
+    expect(client.query).toHaveBeenCalledWith('commit');
+    expect(client.release).toHaveBeenCalledOnce();
   });
 
   it('closes the HTTP listener before releasing the database pool', async () => {
