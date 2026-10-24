@@ -33,6 +33,59 @@
     <meta name="twitter:image:alt" content="Sri Rudra Trips travel logo" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="/favicon.png" />
+    <!-- Critical splash styles must be available before the JS/CSS bundles load. -->
+    <style>
+      html { background: #05292d; }
+      body { margin: 0; }
+      #boot-splash {
+        position: fixed; inset: 0; z-index: 70; display: grid;
+        min-height: 100vh; min-height: 100svh; place-items: center;
+        overflow: hidden; padding: 0 20px; color: white;
+        background: radial-gradient(circle at 50% 36%, rgba(247,178,103,.24), transparent 34%),
+          linear-gradient(135deg, rgba(5,41,45,.96), rgba(8,53,58,.82) 48%, rgba(18,63,53,.66)),
+          #05292d;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+      #boot-splash .boot-content { width: 100%; max-width: 448px; text-align: center; }
+      #boot-splash img {
+        box-sizing: border-box; width: 144px; height: 144px; padding: 4px;
+        border-radius: 16px; background: white; object-fit: contain;
+        box-shadow: 0 0 0 4px rgba(255,255,255,.25), 0 25px 50px -12px rgba(0,0,0,.25);
+      }
+      #boot-splash .boot-brand {
+        margin: 28px 0 0; font-size: 12px; font-weight: 700;
+        letter-spacing: .34em; text-transform: uppercase; color: #f7b267;
+      }
+      #boot-splash .boot-title {
+        margin: 12px 0 0; font-family: 'Playfair Display', Georgia, serif;
+        font-size: 30px; font-weight: 700; line-height: 1.25;
+      }
+      #boot-splash .boot-description {
+        max-width: 384px; margin: 12px auto 0; font-size: 14px;
+        line-height: 24px; color: rgba(255,255,255,.78);
+      }
+      #boot-splash .boot-track {
+        height: 6px; max-width: 256px; margin: 32px auto 0;
+        overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.18);
+      }
+      #boot-splash .boot-progress {
+        height: 100%; width: 50%; border-radius: inherit; background: #f7b267;
+        animation: boot-progress 1350ms ease-in-out infinite;
+      }
+      @keyframes boot-progress { from { transform: translateX(-110%); } to { transform: translateX(210%); } }
+      @media (min-width: 390px) {
+        #boot-splash img { width: 176px; height: 176px; }
+        #boot-splash .boot-title { font-size: 36px; }
+      }
+      @media (min-width: 640px) {
+        #boot-splash img { width: 208px; height: 208px; }
+        #boot-splash .boot-title { font-size: 48px; }
+        #boot-splash .boot-description { font-size: 16px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash .boot-progress { animation: none; }
+      }
+    </style>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -68,11 +121,16 @@
   </head>
   <body>
     <div id="root">
-      <main>
-        <h1 style="margin: 0; padding: 2rem 1rem; color: #0b5960; font: 700 2rem/1.2 Arial, sans-serif; text-align: center;">
-          Sri Rudra Trips – Discover Your Next Journey
-        </h1>
-      </main>
+      <!-- React replaces this initial splash with the application's splash. -->
+      <div id="boot-splash" role="status" aria-label="Loading Sri Rudra Trips">
+        <div class="boot-content">
+          <img src="/brand-logo.jpeg" alt="Sri Rudra Trips logo" width="208" height="208" fetchpriority="high" />
+          <p class="boot-brand">Sri Rudra Trips</p>
+          <p class="boot-title">Your Journey Starts Here</p>
+          <p class="boot-description">Scenic destinations, simple planning, and friendly travel guidance.</p>
+          <div class="boot-track" aria-hidden="true"><div class="boot-progress"></div></div>
+        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
