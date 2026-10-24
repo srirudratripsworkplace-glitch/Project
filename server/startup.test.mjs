@@ -9,6 +9,21 @@ import { expect, it } from 'vitest';
 
 const entry = new URL('./local-api.mjs', import.meta.url);
 
+function productionEnv(port) {
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+    /^(path|systemroot|windir|temp|tmp)$/i.test(key)));
+  return Object.assign(env, {
+    NODE_ENV: 'production', PORT: String(port), LOCAL_API_PORT: 'invalid-fallback-port',
+    DATABASE_URL: 'postgresql://test:test@127.0.0.1:1/unavailable',
+    CORS_ORIGINS: 'https://frontend.example',
+    ADMIN_PASSWORD_HASH: `scrypt$16384$8$1$${'a'.repeat(32)}$${'b'.repeat(128)}`,
+    ADMIN_SESSION_SECRET: 'test-only-secret-with-at-least-32-bytes',
+    // Even a configured, unreachable SMTP service must not delay listening.
+    SMTP_HOST: '127.0.0.1', SMTP_PORT: '1', SMTP_USER: 'test-user', SMTP_PASS: 'test-only-smtp-secret',
+    ENQUIRY_FROM_EMAIL: 'sender@example.com', ENQUIRY_TO_EMAIL: 'recipient@example.com',
+  });
+}
+
 it.each(['direct', 'imported by launcher'])(
   'production entry listens within three seconds when %s, with the database unavailable',
   async (mode) => {
@@ -19,15 +34,7 @@ it.each(['direct', 'imported by launcher'])(
     await new Promise((resolve) => reservation.close(resolve));
     // An empty working directory prevents dotenv from reading real local secrets.
     const cwd = await mkdtemp(join(tmpdir(), 'srirudra-startup-'));
-    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
-      /^(path|systemroot|windir|temp|tmp)$/i.test(key)));
-    Object.assign(env, {
-      NODE_ENV: 'production', PORT: String(port),
-      DATABASE_URL: 'postgresql://test:test@127.0.0.1:1/unavailable',
-      CORS_ORIGINS: 'https://frontend.example',
-      ADMIN_PASSWORD_HASH: `scrypt$16384$8$1$${'a'.repeat(32)}$${'b'.repeat(128)}`,
-      ADMIN_SESSION_SECRET: 'test-only-secret-with-at-least-32-bytes',
-    });
+    const env = productionEnv(port);
     const args = mode === 'direct' ? [fileURLToPath(entry)]
       : ['--input-type=module', '--eval', `import ${JSON.stringify(entry.href)};`];
     const startedAt = performance.now();
@@ -58,6 +65,7 @@ it.each(['direct', 'imported by launcher'])(
       expect(output).not.toContain(env.DATABASE_URL);
       expect(output).not.toContain(env.ADMIN_PASSWORD_HASH);
       expect(output).not.toContain(env.ADMIN_SESSION_SECRET);
+      expect(output).not.toContain(env.SMTP_PASS);
     } finally {
       clearTimeout(timer);
       child.kill();
@@ -66,3 +74,42 @@ it.each(['direct', 'imported by launcher'])(
     }
   }, 10000,
 );
+
+it.each([
+  ['DATABASE_URL', '', 'DATABASE_URL must be configured.'],
+  ['CORS_ORIGINS', '', 'CORS_ORIGINS must list the production frontend origin.'],
+  ['ADMIN_PASSWORD_HASH', 'test-only-invalid-hash', 'Configure a valid ADMIN_PASSWORD_HASH'],
+  ['ADMIN_SESSION_SECRET', 'test-only-short-secret', 'Configure a valid ADMIN_PASSWORD_HASH'],
+  ['PORT', 'invalid-port', 'PORT must be a valid TCP port.'],
+])('production entry exits without listening when %s is invalid', async (key, value, message) => {
+  const cwd = await mkdtemp(join(tmpdir(), 'srirudra-startup-'));
+  const env = { ...productionEnv(8787), [key]: value };
+  const child = spawn(process.execPath, [fileURLToPath(entry)], {
+    cwd, env, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const exited = once(child, 'exit');
+  let output = '';
+  let timer;
+  child.stdout.on('data', (chunk) => { output += chunk; });
+  child.stderr.on('data', (chunk) => { output += chunk; });
+  try {
+    const [code] = await Promise.race([
+      exited,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Invalid configuration did not terminate startup.')), 3000);
+      }),
+    ]);
+    expect(code).toBe(1);
+    expect(output).toContain('API startup failed.');
+    expect(output).toContain(message);
+    expect(output).not.toContain('API startup: listening');
+    for (const secret of [env.DATABASE_URL, env.ADMIN_PASSWORD_HASH, env.ADMIN_SESSION_SECRET, env.SMTP_PASS]) {
+      if (secret) expect(output).not.toContain(secret);
+    }
+  } finally {
+    clearTimeout(timer);
+    if (child.exitCode === null) child.kill();
+    await exited;
+    await rm(cwd, { recursive: true, force: true });
+  }
+}, 10000);

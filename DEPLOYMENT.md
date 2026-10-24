@@ -15,7 +15,7 @@
 3. For a disposable local PostgreSQL instance, use `supabase/local-postgres.sql` (it creates and seeds local sample content). For a Supabase development project, apply `supabase/schema.sql` and run `supabase/seed-trips.sql` only if sample content is wanted. Schema application is explicit; the API does not create tables or seed data during startup.
 4. In one terminal run `npm run start:api`.
 5. In another terminal run `npm run dev`.
-6. Run `npm test` and `npm run build` to validate the project.
+6. Run `npm test`, `npm run build`, and `npm run build:web` to validate the project.
 
 The local API listens on `PORT`, then `LOCAL_API_PORT`, then `8787`. The Vite app uses port `5173` and connects to the local API by default. If using a different local frontend origin, add its exact origin to `CORS_ORIGINS`.
 Before manually submitting enquiries in local development, unset SMTP and WhatsApp production credentials or replace them with test services. Automated tests inject notification failures and do not contact external providers.
@@ -30,11 +30,16 @@ Before manually submitting enquiries in local development, unset SMTP and WhatsA
 ## Vercel frontend
 
 - Framework: Vite
-- Build command: `npm run build`
+- Build command: `npm run build:web` (explicitly set in `vercel.json`)
 - Output directory: `dist`
 - Set `VITE_API_BASE_URL` to the HTTPS origin of the separately hosted API, for example `https://api.example.com`.
 - Do not set passwords, database URLs, SMTP credentials, WhatsApp tokens, or Supabase service-role keys in any `VITE_` variable. Vite variables are public in the browser bundle.
 - The included Vercel configuration serves `/admin` through the SPA and applies baseline browser security headers.
+- `vercel.json` overrides the dashboard build command. Keep the Vercel project root
+  at this repository's root so it reads this configuration. If deploying from
+  another root or a custom CI workflow, set its build command to
+  `npm run build:web` and output directory to `dist` before pushing. Ensure the
+  frontend install includes development dependencies (`npm ci --include=dev`).
 
 ## Node.js API service
 
@@ -63,7 +68,7 @@ serve `dist/`, import frontend code, or need TypeScript/Vite to start.
 | Root directory | Repository root (`./`) |
 | Package manager | npm |
 | Install command, if configurable | `npm ci --omit=dev` |
-| Build command | `npm run build:api` |
+| Build command | `npm run build` (delegates to `build:api`) |
 | Entry file, relative to root | `server/local-api.mjs` |
 | Start command, if configurable | `npm start` |
 | Output directory, if required | `.` (source application, not `dist`) |
@@ -85,7 +90,9 @@ and CORS configuration is still validated before the listener opens;
 `tsc: command not found` means the frontend build ran without the TypeScript
 development dependency available. Production installs can omit development
 dependencies. Use the backend build command here; Vercel continues to use
-`npm run build` with development dependencies installed (`npm ci --include=dev`).
+`npm run build:web` with development dependencies installed (`npm ci --include=dev`).
+The default `npm run build` is deliberately backend-only for Hostinger's automatic
+build selection. TypeScript and Vite remain development dependencies.
 
 Configure these values privately in Hostinger's runtime environment:
 
