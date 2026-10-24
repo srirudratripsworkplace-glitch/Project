@@ -38,6 +38,8 @@ create table if not exists public.enquiries (
   travellers text,
   travel_date date,
   message text,
+  is_confirmed boolean not null default false,
+  confirmed_at timestamptz,
   created_at timestamptz default now()
 );
 

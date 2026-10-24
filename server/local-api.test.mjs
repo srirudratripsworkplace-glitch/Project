@@ -115,6 +115,7 @@ describe('public API access controls and validation', () => {
       ['/api/customer-reviews/test-review', 'PUT', {}],
       ['/api/customer-reviews/test-review', 'DELETE'],
       ['/api/enquiries/00000000-0000-4000-8000-000000000001', 'DELETE'],
+      ['/api/enquiries/confirmation', 'PUT', { ids: ['00000000-0000-4000-8000-000000000001'], isConfirmed: true }],
     ];
     for (const [path, method, body] of requests) {
       const response = await apiRequest(api.url, path, { method, body });
@@ -315,6 +316,83 @@ describe('public API access controls and validation', () => {
     const response = await apiRequest(api.url, `/api/enquiries/${id}`, { method: 'DELETE', cookie });
     expect(response.status).toBe(204);
     expect(api.pool.query).toHaveBeenCalledWith('delete from enquiries where id = $1', [id]);
+  });
+
+  it('allows administrators to confirm and unconfirm selected enquiries', async () => {
+    const ids = [
+      '00000000-0000-4000-8000-000000000001',
+      '00000000-0000-4000-8000-000000000002',
+    ];
+    api = await startTestApi({
+      pool: makePool(async (sql) => sql.includes('update public.enquiries')
+        ? { rows: ids.map((id) => ({ id })), rowCount: ids.length }
+        : { rows: [], rowCount: 1 }),
+    });
+    const { cookie } = await signIn(api.url);
+
+    for (const isConfirmed of [true, false]) {
+      const response = await apiRequest(api.url, '/api/enquiries/confirmation', {
+        method: 'PUT',
+        cookie,
+        body: { ids, isConfirmed },
+      });
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ updated: ids.length });
+      expect(api.pool.query).toHaveBeenLastCalledWith(
+        expect.stringContaining('update public.enquiries'),
+        [ids, isConfirmed],
+      );
+    }
+  });
+
+  it('rejects invalid enquiry confirmation requests before database writes', async () => {
+    api = await startTestApi();
+    const { cookie } = await signIn(api.url);
+    const invalidBodies = [
+      { ids: [], isConfirmed: true },
+      { ids: ['invalid-id'], isConfirmed: true },
+      { ids: ['00000000-0000-4000-8000-000000000001'], isConfirmed: 'yes' },
+      { ids: Array.from({ length: 101 }, () => '00000000-0000-4000-8000-000000000001'), isConfirmed: true },
+    ];
+    for (const body of invalidBodies) {
+      const response = await apiRequest(api.url, '/api/enquiries/confirmation', {
+        method: 'PUT',
+        cookie,
+        body,
+      });
+      expect(response.status).toBe(400);
+    }
+    expect(api.pool.query).not.toHaveBeenCalled();
+  });
+
+  it('returns saved confirmation details in admin enquiries', async () => {
+    const enquiry = {
+      id: '00000000-0000-4000-8000-000000000001',
+      name: 'Confirmed Customer',
+      phone: '+447911123456',
+      email: 'customer@example.com',
+      destination: 'Bath',
+      travellers: '2',
+      travel_date: '2026-12-20',
+      message: 'Please confirm our trip.',
+      created_at: '2026-10-09T00:00:00.000Z',
+      is_confirmed: true,
+      confirmed_at: '2026-10-10T00:00:00.000Z',
+    };
+    api = await startTestApi({
+      pool: makePool(async (sql) => sql.includes('from enquiries')
+        ? { rows: [enquiry], rowCount: 1 }
+        : { rows: [], rowCount: 1 }),
+    });
+    const { cookie } = await signIn(api.url);
+    const response = await apiRequest(api.url, '/api/admin-data', { cookie });
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.enquiries[0]).toMatchObject({
+      id: enquiry.id,
+      isConfirmed: true,
+      confirmedAt: enquiry.confirmed_at,
+    });
   });
 
   it('sets production admin cookies as secure, HTTP-only and cross-origin capable', async () => {

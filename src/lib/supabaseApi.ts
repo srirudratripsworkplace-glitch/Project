@@ -113,6 +113,16 @@ export async function deleteEnquiry(id: string) {
   await request(`/api/enquiries/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+export async function updateEnquiryConfirmation(ids: string[], isConfirmed: boolean) {
+  const result = await request<{ updated: number }>('/api/enquiries/confirmation', {
+    method: 'PUT',
+    body: JSON.stringify({ ids, isConfirmed }),
+  });
+  if (!result || result.updated !== ids.length) {
+    throw new Error('Could not update the confirmation status for every selected enquiry.');
+  }
+}
+
 export async function createSpecialTrip(trip: SpecialTrip) {
   await request('/api/special-trips', {
     method: 'POST',

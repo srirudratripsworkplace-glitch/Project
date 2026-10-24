@@ -339,6 +339,30 @@ app.delete('/api/enquiries/:id', requireAdmin, validateReviewId, async (request,
   }
 });
 
+app.put('/api/enquiries/confirmation', requireAdmin, async (request, response, next) => {
+  const { ids, isConfirmed } = request.body || {};
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > 100 ||
+      !ids.every((id) => typeof id === 'string' && isValidEnquiryId(id)) ||
+      typeof isConfirmed !== 'boolean') {
+    return response.status(400).json({ error: 'Choose between 1 and 100 valid enquiries and a confirmation status.' });
+  }
+
+  try {
+    const uniqueIds = [...new Set(ids)];
+    const result = await pool.query(
+      `update public.enquiries
+       set is_confirmed = $2,
+           confirmed_at = case when $2 then coalesce(confirmed_at, now()) else null end
+       where id = any($1::uuid[])
+       returning id`,
+      [uniqueIds, isConfirmed],
+    );
+    response.json({ updated: result.rowCount ?? result.rows.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post('/api/customer-reviews', requireAdmin, async (request, response, next) => {
   try {
     const reviewInput = isPlainObject(request.body)
@@ -875,10 +899,14 @@ function validatePathId(request, response, next) {
 }
 
 function validateReviewId(request, response, next) {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(request.params.id)) {
+  if (!isValidEnquiryId(request.params.id)) {
     return response.status(400).json({ error: 'Invalid record identifier.' });
   }
   next();
+}
+
+function isValidEnquiryId(id) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 }
 
 function createRateLimiter({ limit, windowMs }) {
@@ -1088,6 +1116,8 @@ function toEnquiry(row) {
     travelDate: row.travel_date || '',
     message: row.message || '',
     createdAt: row.created_at,
+    isConfirmed: row.is_confirmed ?? false,
+    confirmedAt: row.confirmed_at || '',
   };
 }
 

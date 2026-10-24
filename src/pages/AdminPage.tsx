@@ -1,5 +1,24 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, ImagePlus, LogOut, Pencil, RefreshCw, Save, Trash2, X } from 'lucide-react';
+import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  ClipboardList,
+  Eye,
+  EyeOff,
+  ImagePlus,
+  LayoutDashboard,
+  LogOut,
+  MapPinned,
+  MessageSquare,
+  Pencil,
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react';
 import type { CustomerReview, Destination, Enquiry, SpecialTrip, TripCategory } from '../data/destinations';
 import {
   createCustomerReview,
@@ -13,6 +32,7 @@ import {
   checkAdminSession,
   loginAdmin,
   logoutAdmin,
+  updateEnquiryConfirmation,
   updateCustomerReview,
   updateSpecialTrip,
   upsertCategory,
@@ -82,6 +102,8 @@ export function AdminPage() {
   const [categories, setCategories] = useState<TripCategory[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const [selectedEnquiryIds, setSelectedEnquiryIds] = useState<string[]>([]);
+  const [isUpdatingConfirmations, setIsUpdatingConfirmations] = useState(false);
   const [specialTrips, setSpecialTrips] = useState<SpecialTrip[]>([]);
   const [customerReviews, setCustomerReviews] = useState<CustomerReview[]>([]);
   const [categoryForm, setCategoryForm] = useState<TripCategory>(emptyCategory);
@@ -102,6 +124,13 @@ export function AdminPage() {
       })),
     [categories, destinations],
   );
+  const pendingEnquiries = useMemo(() => enquiries.filter((enquiry) => !enquiry.isConfirmed), [enquiries]);
+  const confirmedEnquiries = useMemo(() => enquiries.filter((enquiry) => enquiry.isConfirmed), [enquiries]);
+  const selectedPendingIds = useMemo(
+    () => pendingEnquiries.filter((enquiry) => selectedEnquiryIds.includes(enquiry.id)).map((enquiry) => enquiry.id),
+    [pendingEnquiries, selectedEnquiryIds],
+  );
+  const allPendingSelected = pendingEnquiries.length > 0 && selectedPendingIds.length === pendingEnquiries.length;
 
   useEffect(() => {
     let isCurrent = true;
@@ -129,6 +158,7 @@ export function AdminPage() {
       setCategories(data.categories);
       setDestinations(data.destinations);
       setEnquiries(data.enquiries);
+      setSelectedEnquiryIds([]);
       setSpecialTrips(data.specialTrips ?? []);
       setCustomerReviews(data.customerReviews ?? []);
       setDestinationForm((current) => ({ ...current, categoryId: current.categoryId || data.categories[0]?.id || '' }));
@@ -156,6 +186,7 @@ export function AdminPage() {
       setCategories([]);
       setDestinations([]);
       setEnquiries([]);
+      setSelectedEnquiryIds([]);
       setSpecialTrips([]);
       setCustomerReviews([]);
       setStatus('');
@@ -363,11 +394,41 @@ export function AdminPage() {
     }
   }
 
+  function toggleEnquirySelection(id: string) {
+    setSelectedEnquiryIds((current) => current.includes(id)
+      ? current.filter((selectedId) => selectedId !== id)
+      : [...current, id]);
+  }
+
+  function toggleAllPendingEnquiries() {
+    setSelectedEnquiryIds(allPendingSelected ? [] : pendingEnquiries.map((enquiry) => enquiry.id));
+  }
+
+  async function changeEnquiryConfirmation(ids: string[], isConfirmed: boolean) {
+    if (!ids.length) return;
+    try {
+      setIsUpdatingConfirmations(true);
+      await updateEnquiryConfirmation(ids, isConfirmed);
+      setSelectedEnquiryIds([]);
+      setStatus(isConfirmed
+        ? `${ids.length} trip${ids.length === 1 ? '' : 's'} confirmed.`
+        : 'Trip moved back to enquiries.');
+      await loadAdminData();
+    } catch (confirmationError) {
+      setError(confirmationError instanceof Error ? confirmationError.message : 'Could not update trip confirmation.');
+    } finally {
+      setIsUpdatingConfirmations(false);
+    }
+  }
+
   if (!isUnlocked) {
     return (
-      <main className="grid min-h-screen place-items-center bg-ocean-950 px-4 text-white">
-        <form className="w-full max-w-md rounded-[8px] bg-white p-6 text-slate-900 shadow-soft" onSubmit={unlock}>
-          <h1 className="font-display text-4xl font-bold text-ocean-900">Admin</h1>
+      <main className="grid min-h-screen place-items-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-ocean-700 via-ocean-900 to-ocean-950 px-4 py-8 text-white">
+        <form className="w-full max-w-md rounded-3xl border border-white/30 bg-white p-6 text-slate-900 shadow-2xl sm:p-8" onSubmit={unlock}>
+          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-ocean-50 text-ocean-800"><ShieldCheck size={25} /></span>
+          <p className="mt-5 text-xs font-bold uppercase tracking-[0.2em] text-ocean-700">Sri Rudra Trips</p>
+          <h1 className="mt-1 font-display text-4xl font-bold text-ocean-950">Admin sign in</h1>
+          <p className="mt-2 text-sm text-slate-600">Manage trips, customer enquiries and confirmed bookings.</p>
           {isCheckingSession && <p className="mt-3 text-sm text-slate-600">Checking your admin session...</p>}
           <label className="mt-6 block">
             <span className="mb-2 block text-sm font-bold">Password</span>
@@ -383,28 +444,66 @@ export function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-stone-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white px-4 py-5">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <a className="inline-flex items-center gap-2 text-sm font-bold text-ocean-700" href="/">
-              <ArrowLeft size={16} /> Back to site
+    <main className="min-h-screen overflow-x-hidden bg-slate-100 text-slate-900">
+      <header className="bg-gradient-to-br from-ocean-950 via-ocean-900 to-ocean-800 px-4 pb-7 pt-4 text-white sm:px-6 sm:pb-9 sm:pt-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex items-center justify-between gap-3 border-b border-white/15 pb-4">
+            <a className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-white/85 transition hover:text-white" href="/">
+              <ArrowLeft size={16} /> <span className="hidden min-[380px]:inline">Back to website</span><span className="min-[380px]:hidden">Website</span>
             </a>
-            <h1 className="mt-2 font-display text-4xl font-bold text-ocean-900">Trips Admin</h1>
+            <div className="flex shrink-0 gap-2">
+              <button type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/25 px-3 text-sm font-semibold text-white transition hover:bg-white/10" onClick={() => void loadAdminData()}>
+                <RefreshCw size={16} /> <span className="hidden sm:inline">Refresh</span>
+              </button>
+              <button type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-bold text-ocean-950 transition hover:bg-ocean-50" onClick={() => void lockAdmin()}>
+                <LogOut size={16} /> Sign out
+              </button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button className="btn-outline justify-center" onClick={loadAdminData}>
-              <RefreshCw size={17} /> Refresh
-            </button>
-            <button className="btn-outline justify-center" onClick={() => void lockAdmin()}>
-              <LogOut size={17} /> Sign out
-            </button>
+          <div className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-end sm:justify-between sm:pt-7">
+            <div>
+              <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-teal-200">
+                <LayoutDashboard size={15} /> Sri Rudra Trips · Admin
+              </p>
+              <h1 className="mt-1 font-display text-3xl font-bold tracking-tight sm:text-4xl">Operations dashboard</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/75">Manage your trips, customer enquiries and confirmed bookings in one place.</p>
+            </div>
+            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/90">
+              <span className="h-2 w-2 rounded-full bg-emerald-300" /> Admin session active
+            </span>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 lg:grid-cols-[0.9fr_1.1fr]">
-        <section className="rounded-[8px] bg-white p-5 shadow-soft lg:col-span-2">
+      <nav className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 shadow-sm backdrop-blur sm:px-6 lg:px-8" aria-label="Admin sections">
+        <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto py-2.5">
+          {[
+            ['special-trips', 'Special trips'],
+            ['categories', 'Categories'],
+            ['places', 'Places'],
+            ['current-trips', 'Current trips'],
+            ['reviews', 'Reviews'],
+            ['enquiries', 'Enquiries'],
+            ['confirmed-trips', 'Confirmed trips'],
+          ].map(([id, label]) => (
+            <a key={id} className="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-ocean-50 hover:text-ocean-900 sm:text-sm" href={`#${id}`}>
+              {label}
+            </a>
+          ))}
+        </div>
+      </nav>
+
+      <div className="mx-auto max-w-7xl px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
+        <section className="mb-5 grid grid-cols-2 gap-3 sm:mb-7 sm:gap-4 lg:grid-cols-5" aria-label="Dashboard summary">
+          <SummaryCard icon={<ClipboardList size={18} />} label="Special trips" value={specialTrips.length} accent="bg-amber-50 text-amber-800" />
+          <SummaryCard icon={<MapPinned size={18} />} label="Places" value={destinations.length} accent="bg-sky-50 text-sky-800" />
+          <SummaryCard icon={<MessageSquare size={18} />} label="New enquiries" value={pendingEnquiries.length} accent="bg-violet-50 text-violet-800" />
+          <SummaryCard icon={<CheckCircle2 size={18} />} label="Confirmed trips" value={confirmedEnquiries.length} accent="bg-emerald-50 text-emerald-800" />
+          <SummaryCard icon={<Users size={18} />} label="Customer reviews" value={customerReviews.length} accent="bg-rose-50 text-rose-800" />
+        </section>
+
+        <div className="grid min-w-0 gap-5 lg:grid-cols-2 lg:gap-6">
+        <section id="special-trips" className="min-w-0 scroll-mt-20 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-xl font-bold text-ocean-900">Special Trips</h2>
@@ -507,7 +606,7 @@ export function AdminPage() {
           </div>
         </section>
 
-        <section className="rounded-[8px] bg-white p-5 shadow-soft">
+        <section id="categories" className="min-w-0 scroll-mt-20 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6">
           <h2 className="text-xl font-bold text-ocean-900">Tour Categories</h2>
           <form className="mt-5 grid gap-4" onSubmit={saveCategory}>
             <TextInput label="Title" value={categoryForm.title} onChange={(title) => setCategoryForm({ ...categoryForm, title })} required />
@@ -526,7 +625,7 @@ export function AdminPage() {
           </form>
         </section>
 
-        <section className="rounded-[8px] bg-white p-5 shadow-soft">
+        <section id="places" className="min-w-0 scroll-mt-20 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6">
           <h2 className="text-xl font-bold text-ocean-900">Places</h2>
           <form ref={destinationFormRef} className="mt-5 grid scroll-mt-6 gap-4" onSubmit={saveDestination}>
             {destinationForm.id && (
@@ -609,7 +708,7 @@ export function AdminPage() {
           </form>
         </section>
 
-        <section className="rounded-[8px] bg-white p-5 shadow-soft lg:col-span-2">
+        <section id="current-trips" className="min-w-0 scroll-mt-20 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
           <h2 className="text-xl font-bold text-ocean-900">Current Trips</h2>
           <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {groupedDestinations.map(({ category, destinations: categoryDestinations }) => (
@@ -657,7 +756,7 @@ export function AdminPage() {
           </div>
         </section>
 
-        <section className="rounded-[8px] bg-white p-5 shadow-soft lg:col-span-2">
+        <section id="reviews" className="min-w-0 scroll-mt-20 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
           <h2 className="text-xl font-bold text-ocean-900">Customer Reviews & Photos</h2>
           <p className="mt-1 text-sm text-slate-600">
             Add customer-approved reviews and photos. Published entries appear on the website. {customerReviews.length} of {maximumCustomerReviews} reviews added.
@@ -743,81 +842,155 @@ export function AdminPage() {
           </div>
         </section>
 
-        <section className="rounded-[8px] bg-white p-5 shadow-soft lg:col-span-2">
-          <h2 className="text-xl font-bold text-ocean-900">Customer Enquiries</h2>
-          <div className="mt-5 hidden overflow-x-auto sm:block">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-ocean-50 text-ocean-900">
-                <tr>
-                  <th className="px-3 py-3">Date</th>
-                  <th className="px-3 py-3">Name</th>
-                  <th className="px-3 py-3">Phone</th>
-                  <th className="px-3 py-3">Destination</th>
-                  <th className="px-3 py-3">Message</th>
-                  <th className="px-3 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enquiries.map((enquiry) => (
-                  <tr key={enquiry.id} className="border-b border-slate-100">
-                    <td className="px-3 py-3">{new Date(enquiry.createdAt).toLocaleString()}</td>
-                    <td className="px-3 py-3 font-semibold">{enquiry.name}</td>
-                    <td className="px-3 py-3">{enquiry.phone}</td>
-                    <td className="px-3 py-3">{enquiry.destination}</td>
-                    <td className="px-3 py-3">{enquiry.message}</td>
-                    <td className="px-3 py-3">
-                      <button type="button" className="inline-flex items-center gap-1 font-semibold text-red-700" onClick={() => void removeEnquiry(enquiry)}>
-                        <Trash2 size={15} /> Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {enquiries.length === 0 && (
-                  <tr>
-                    <td className="px-3 py-4 text-slate-500" colSpan={6}>No customer enquiries yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        <section id="enquiries" className="min-w-0 scroll-mt-20 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-violet-700">Incoming requests</p>
+              <h2 className="mt-1 text-xl font-bold text-ocean-950">Customer enquiries</h2>
+              <p className="mt-1 text-sm text-slate-600">{pendingEnquiries.length} waiting for confirmation</p>
+            </div>
+            {selectedPendingIds.length > 0 && (
+              <button
+                type="button"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+                onClick={() => void changeEnquiryConfirmation(selectedPendingIds, true)}
+                disabled={isUpdatingConfirmations}
+              >
+                <Check size={17} /> {isUpdatingConfirmations ? 'Confirming...' : `Confirm ${selectedPendingIds.length} selected`}
+              </button>
+            )}
           </div>
-          <div className="mt-4 space-y-3 sm:hidden">
-            {enquiries.map((enquiry) => (
-              <article key={enquiry.id} className="min-w-0 rounded-[8px] border border-slate-200 p-3">
-                <div className="flex min-w-0 items-start justify-between gap-3">
-                  <h3 className="min-w-0 break-words font-bold text-ocean-900">{enquiry.name}</h3>
-                  <span className="shrink-0 rounded-full bg-ocean-50 px-2 py-1 text-xs font-semibold text-ocean-800">
-                    {enquiry.travellers} traveller{enquiry.travellers === '1' ? '' : 's'}
-                  </span>
-                </div>
-                <p className="mt-1 break-words text-xs text-slate-500">{new Date(enquiry.createdAt).toLocaleString()}</p>
-                <dl className="mt-3 grid gap-2 text-sm">
+
+          <label className="mt-5 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 sm:px-4">
+            <input
+              className="h-5 w-5 accent-emerald-700"
+              type="checkbox"
+              checked={allPendingSelected}
+              onChange={toggleAllPendingEnquiries}
+              disabled={pendingEnquiries.length === 0 || isUpdatingConfirmations}
+            />
+            Select all pending enquiries
+            <span className="ml-auto text-xs font-medium text-slate-500">{pendingEnquiries.length} pending</span>
+          </label>
+
+          {pendingEnquiries.length > 0 ? (
+            <div className="mt-3 space-y-3">
+              {pendingEnquiries.map((enquiry) => (
+                <article key={enquiry.id} className="grid min-w-0 gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-ocean-200 hover:bg-slate-50/60 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start sm:gap-4 sm:p-4">
+                  <input
+                    className="mt-1 h-5 w-5 accent-emerald-700"
+                    type="checkbox"
+                    checked={selectedEnquiryIds.includes(enquiry.id)}
+                    onChange={() => toggleEnquirySelection(enquiry.id)}
+                    disabled={isUpdatingConfirmations}
+                    aria-label={`Select enquiry from ${enquiry.name}`}
+                  />
                   <div className="min-w-0">
-                    <dt className="text-xs font-semibold text-slate-500">Phone</dt>
-                    <dd className="break-all">{enquiry.phone}</dd>
-                  </div>
-                  <div className="min-w-0">
-                    <dt className="text-xs font-semibold text-slate-500">Destination</dt>
-                    <dd className="break-words">{enquiry.destination}</dd>
-                  </div>
-                  {enquiry.message && (
-                    <div className="min-w-0">
-                      <dt className="text-xs font-semibold text-slate-500">Message</dt>
-                      <dd className="break-words">{enquiry.message}</dd>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="break-words font-bold text-ocean-950">{enquiry.name}</h3>
+                      <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-800">New enquiry</span>
                     </div>
-                  )}
-                </dl>
-                <button type="button" className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[6px] bg-red-50 px-3 py-2 font-semibold text-red-700" onClick={() => void removeEnquiry(enquiry)}>
-                  <Trash2 size={16} /> Delete enquiry
-                </button>
-              </article>
-            ))}
-            {enquiries.length === 0 && <p className="rounded-[8px] bg-stone-50 p-4 text-sm text-slate-500">No customer enquiries yet.</p>}
-          </div>
+                    <p className="mt-1 break-words text-sm font-semibold text-slate-800">{enquiry.destination}</p>
+                    <p className="mt-1 break-words text-xs text-slate-500">
+                      {enquiry.travellers} traveller{enquiry.travellers === '1' ? '' : 's'}
+                      {enquiry.travelDate && ` · Preferred date ${enquiry.travelDate}`}
+                      {` · Received ${new Date(enquiry.createdAt).toLocaleString()}`}
+                    </p>
+                    <div className="mt-3 grid min-w-0 gap-2 text-sm sm:grid-cols-2">
+                      <p className="break-all"><span className="font-semibold text-slate-500">Phone:</span> {enquiry.phone}</p>
+                      {enquiry.email && <p className="break-all"><span className="font-semibold text-slate-500">Email:</span> {enquiry.email}</p>}
+                      {enquiry.message && <p className="break-words sm:col-span-2"><span className="font-semibold text-slate-500">Message:</span> {enquiry.message}</p>}
+                    </div>
+                  </div>
+                  <button type="button" className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 sm:w-auto" onClick={() => void removeEnquiry(enquiry)}>
+                    <Trash2 size={15} /> Delete
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
+              <CheckCircle2 className="mx-auto text-emerald-700" size={28} />
+              <p className="mt-2 font-semibold text-slate-800">No pending enquiries</p>
+              <p className="mt-1 text-sm text-slate-500">New customer enquiries will appear here.</p>
+            </div>
+          )}
         </section>
+
+        <section id="confirmed-trips" className="min-w-0 scroll-mt-20 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-800"><CheckCircle2 size={21} /></span>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Bookings</p>
+              <h2 className="mt-1 text-xl font-bold text-ocean-950">Confirmed trips</h2>
+              <p className="mt-1 text-sm text-slate-600">Enquiries marked confirmed are collected here for follow-up.</p>
+            </div>
+            <span className="ml-auto rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-800">{confirmedEnquiries.length}</span>
+          </div>
+          {confirmedEnquiries.length > 0 ? (
+            <div className="mt-5 grid min-w-0 gap-3 md:grid-cols-2">
+              {confirmedEnquiries.map((enquiry) => (
+                <article key={enquiry.id} className="min-w-0 rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="break-words font-bold text-ocean-950">{enquiry.name}</h3>
+                      <p className="mt-1 break-words font-semibold text-emerald-800">{enquiry.destination}</p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-900">Confirmed</span>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {enquiry.travellers} traveller{enquiry.travellers === '1' ? '' : 's'}
+                    {enquiry.travelDate && ` · Travel date ${enquiry.travelDate}`}
+                  </p>
+                  <p className="mt-1 break-all text-sm text-slate-700">{enquiry.phone}</p>
+                  {enquiry.email && <p className="mt-1 break-all text-sm text-slate-700">{enquiry.email}</p>}
+                  {enquiry.message && <p className="mt-2 break-words text-sm text-slate-600">{enquiry.message}</p>}
+                  {enquiry.confirmedAt && (
+                    <p className="mt-3 text-xs text-slate-500">Confirmed {new Date(enquiry.confirmedAt).toLocaleString()}</p>
+                  )}
+                  <button
+                    type="button"
+                    className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-50"
+                    onClick={() => void changeEnquiryConfirmation([enquiry.id], false)}
+                    disabled={isUpdatingConfirmations}
+                  >
+                    <ArrowLeft size={15} /> Move back to enquiries
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-xl border border-dashed border-emerald-200 bg-emerald-50/40 px-4 py-8 text-center">
+              <p className="font-semibold text-slate-800">No confirmed trips yet</p>
+              <p className="mt-1 text-sm text-slate-500">Select an enquiry above and choose “Confirm” to add it here.</p>
+            </div>
+          )}
+        </section>
+        </div>
       </div>
 
       {(status || error) && <div className="fixed bottom-4 left-4 right-4 z-50 rounded-[8px] bg-ocean-950 px-4 py-3 text-sm font-bold text-white shadow-soft sm:left-auto sm:max-w-md">{error || status}</div>}
     </main>
+  );
+}
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: number;
+  accent: string;
+}) {
+  return (
+    <article className="min-w-0 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-4">
+      <div className={`grid h-9 w-9 place-items-center rounded-xl ${accent}`}>{icon}</div>
+      <p className="mt-3 text-2xl font-bold tabular-nums text-ocean-950 sm:text-3xl">{value}</p>
+      <p className="mt-0.5 truncate text-xs font-semibold text-slate-500 sm:text-sm">{label}</p>
+    </article>
   );
 }
 

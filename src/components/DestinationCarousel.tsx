@@ -48,6 +48,9 @@ export function DestinationCarousel({ categories, destinations, error, isLoading
               const categoryDestinations = destinations.filter((destination) => destination.categoryId === category.id);
               const Icon = icons[category.iconName as keyof typeof icons] ?? Map;
               const firstDestination = categoryDestinations[0];
+              const categoryImage = category.id === 'temples-spiritual-tours'
+                ? '/trips/skanda-vale-temple.jpg'
+                : category.image;
 
               return (
                 <article
@@ -61,9 +64,9 @@ export function DestinationCarousel({ categories, destinations, error, isLoading
                     <h3 className="mt-1.5 font-display text-base font-bold leading-tight tracking-normal sm:text-lg">{category.title}</h3>
                     <p className="mt-1 text-[0.55rem] font-bold uppercase leading-tight tracking-[0.12em] text-white/90">{category.subtitle}</p>
                   </div>
-                  {category.image && (
+                  {categoryImage && (
                     <img
-                      src={category.image}
+                      src={categoryImage}
                       alt={category.title}
                       className="h-24 w-full object-cover"
                       loading="lazy"

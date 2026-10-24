@@ -36,6 +36,8 @@ export interface Enquiry {
   travelDate: string;
   message: string;
   createdAt: string;
+  isConfirmed: boolean;
+  confirmedAt: string;
 }
 
 export interface SpecialTrip {
