@@ -120,10 +120,9 @@ function DestinationGallery({ name, images }: { name: string; images: string[] }
         <h3 className="font-display text-xl font-bold text-ocean-900">A closer look</h3>
         <span className="text-xs font-semibold text-slate-500">{activeImage + 1} / {images.length}</span>
       </div>
-      <div className="relative mt-3 overflow-hidden rounded-[8px] bg-slate-100">
+      <div {...swipe.handlers} className="relative mt-3 touch-pan-y select-none overflow-hidden rounded-[8px] bg-slate-100">
         <div
-          {...swipe.handlers}
-          className={`flex touch-pan-y select-none ${swipe.offset === 0 ? 'transition-transform duration-700 ease-in-out motion-reduce:transition-none' : ''}`}
+          className={`flex ${swipe.offset === 0 ? 'transition-transform duration-700 ease-in-out motion-reduce:transition-none' : ''}`}
           style={{ transform: `translateX(calc(-${activeImage * 100}% + ${swipe.offset}px))` }}
           aria-live="polite"
         >

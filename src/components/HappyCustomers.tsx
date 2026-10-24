@@ -72,8 +72,12 @@ export function HappyCustomers({ reviews }: { reviews: CustomerReview[] }) {
     if (customerPhotos.length) setActivePhoto((index + customerPhotos.length) % customerPhotos.length);
   }
 
-  const photoSwipe = useSwipeGesture((direction) => showPhoto(activePhoto + direction));
-  const reviewSwipe = useSwipeGesture((direction) => showReview(activeReview + direction));
+  const photoSwipe = useSwipeGesture((direction) => {
+    if (customerPhotos.length) setActivePhoto((index) => (index + direction + customerPhotos.length) % customerPhotos.length);
+  });
+  const reviewSwipe = useSwipeGesture((direction) => {
+    if (reviews.length) setActiveReview((index) => (index + direction + reviews.length) % reviews.length);
+  });
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-gradient-to-b from-white to-ocean-50/70 px-4 py-8 sm:px-6 sm:py-11 lg:px-8">
@@ -102,10 +106,9 @@ export function HappyCustomers({ reviews }: { reviews: CustomerReview[] }) {
             aria-roledescription="carousel"
             aria-label="Customer photo carousel"
           >
-            <div className="relative overflow-hidden">
+            <div {...photoSwipe.handlers} className="relative touch-pan-y select-none overflow-hidden">
               <div
-                {...photoSwipe.handlers}
-                className={`flex touch-pan-y select-none ${photoSwipe.offset === 0 ? 'transition-transform duration-500 ease-out motion-reduce:transition-none' : ''}`}
+                className={`flex ${photoSwipe.offset === 0 ? 'transition-transform duration-500 ease-out motion-reduce:transition-none' : ''}`}
                 style={{ transform: `translateX(calc(-${activePhoto * 100}% + ${photoSwipe.offset}px))` }}
               >
                 {customerPhotos.length > 0 ? customerPhotos.map((photo, index) => (
@@ -159,33 +162,34 @@ export function HappyCustomers({ reviews }: { reviews: CustomerReview[] }) {
             aria-roledescription={isMobile ? 'carousel' : undefined}
             aria-label={isMobile ? 'Customer reviews' : undefined}
           >
-            <div
-              {...reviewSwipe.handlers}
-              className={`flex touch-pan-y select-none transition-transform duration-500 ease-out motion-reduce:transition-none sm:grid sm:w-auto sm:grid-cols-2 sm:gap-3 lg:grid-cols-1 ${reviewSwipe.offset !== 0 ? '!transition-none' : ''}`}
-              style={isMobile && reviews.length ? { width: `${reviews.length * 100}%`, transform: `translateX(calc(-${activeReview * (100 / reviews.length)}% + ${reviewSwipe.offset}px))` } : undefined}
-            >
-              {reviews.map((review, index) => (
-                <article key={review.id} style={isMobile ? { width: `${100 / reviews.length}%` } : undefined} className={`relative flex shrink-0 flex-col justify-between overflow-hidden rounded-[10px] border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-0 ${index === 0 ? 'border-ocean-800 bg-ocean-900 text-white' : 'border-slate-100 bg-white text-slate-800'}`}>
-                  <Quote size={34} className={`absolute right-4 top-4 ${index === 0 ? 'text-white/10' : 'text-ocean-100'}`} aria-hidden="true" />
-                  <div>
-                    <div className={`flex gap-1 ${index === 0 ? 'text-sunrise' : 'text-amber-500'}`} aria-label="5 out of 5 stars">
-                      {Array.from({ length: 5 }, (_, star) => <Star key={star} size={13} fill="currentColor" />)}
-                    </div>
-                    <p className={`relative mt-2 max-w-xl text-sm leading-5 ${index === 0 ? 'text-white/90' : 'text-slate-600'}`}>“{review.text}”</p>
-                  </div>
-                  <div className={`mt-3 flex items-center justify-between border-t pt-2.5 ${index === 0 ? 'border-white/15' : 'border-slate-100'}`}>
-                    <div className="flex items-center gap-2">
-                      {review.image && <img src={review.image} alt="" className="h-9 w-9 rounded-full object-cover" loading="lazy" />}
-                      <div>
-                        <p className={`text-sm font-bold ${index === 0 ? 'text-white' : 'text-ocean-950'}`}>{review.name}</p>
-                        <p className={`mt-0.5 text-xs ${index === 0 ? 'text-white/60' : 'text-slate-500'}`}>{review.trip}</p>
+            <div {...(isMobile ? reviewSwipe.handlers : {})} className="touch-pan-y select-none">
+              <div
+                className={`flex transition-transform duration-500 ease-out motion-reduce:transition-none sm:grid sm:w-auto sm:grid-cols-2 sm:gap-3 lg:grid-cols-1 ${reviewSwipe.offset !== 0 ? '!transition-none' : ''}`}
+                style={isMobile && reviews.length ? { width: `${reviews.length * 100}%`, transform: `translateX(calc(-${activeReview * (100 / reviews.length)}% + ${reviewSwipe.offset}px))` } : undefined}
+              >
+                {reviews.map((review, index) => (
+                  <article key={review.id} style={isMobile ? { width: `${100 / reviews.length}%` } : undefined} className={`relative flex shrink-0 flex-col justify-between overflow-hidden rounded-[10px] border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:w-auto sm:min-w-0 ${index === 0 ? 'border-ocean-800 bg-ocean-900 text-white' : 'border-slate-100 bg-white text-slate-800'}`}>
+                    <Quote size={34} className={`absolute right-4 top-4 ${index === 0 ? 'text-white/10' : 'text-ocean-100'}`} aria-hidden="true" />
+                    <div>
+                      <div className={`flex gap-1 ${index === 0 ? 'text-sunrise' : 'text-amber-500'}`} aria-label="5 out of 5 stars">
+                        {Array.from({ length: 5 }, (_, star) => <Star key={star} size={13} fill="currentColor" />)}
                       </div>
+                      <p className={`relative mt-2 max-w-xl text-sm leading-5 ${index === 0 ? 'text-white/90' : 'text-slate-600'}`}>“{review.text}”</p>
                     </div>
-                    <span className={`rounded-full px-2.5 py-1 text-[0.62rem] font-bold uppercase tracking-wide ${index === 0 ? 'bg-white/10 text-white/75' : 'bg-ocean-50 text-ocean-700'}`}>Customer review</span>
-                  </div>
-                </article>
-              ))}
-              {reviews.length === 0 && <p className="rounded-[10px] border border-slate-100 bg-white p-5 text-center text-sm text-slate-600">Customer reviews will appear here when published.</p>}
+                    <div className={`mt-3 flex items-center justify-between border-t pt-2.5 ${index === 0 ? 'border-white/15' : 'border-slate-100'}`}>
+                      <div className="flex items-center gap-2">
+                        {review.image && <img src={review.image} alt="" className="h-9 w-9 rounded-full object-cover" loading="lazy" draggable={false} />}
+                        <div>
+                          <p className={`text-sm font-bold ${index === 0 ? 'text-white' : 'text-ocean-950'}`}>{review.name}</p>
+                          <p className={`mt-0.5 text-xs ${index === 0 ? 'text-white/60' : 'text-slate-500'}`}>{review.trip}</p>
+                        </div>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-[0.62rem] font-bold uppercase tracking-wide ${index === 0 ? 'bg-white/10 text-white/75' : 'bg-ocean-50 text-ocean-700'}`}>Customer review</span>
+                    </div>
+                  </article>
+                ))}
+                {reviews.length === 0 && <p className="rounded-[10px] border border-slate-100 bg-white p-5 text-center text-sm text-slate-600">Customer reviews will appear here when published.</p>}
+              </div>
             </div>
             <div className="mt-3 flex justify-center gap-2 sm:hidden" aria-label={`Review ${activeReview + 1} of ${reviews.length}`}>
               {reviews.map((review, index) => (
