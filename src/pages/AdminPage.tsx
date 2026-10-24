@@ -12,7 +12,6 @@ import {
   MapPinned,
   MessageSquare,
   Pencil,
-  RefreshCw,
   Save,
   ShieldCheck,
   Trash2,
@@ -444,7 +443,7 @@ export function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-slate-100 text-slate-900">
+    <main className="admin-shell min-h-screen overflow-x-hidden bg-slate-100 text-slate-900">
       <header className="bg-gradient-to-br from-ocean-950 via-ocean-900 to-ocean-800 px-4 pb-7 pt-4 text-white sm:px-6 sm:pb-9 sm:pt-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="flex items-center justify-between gap-3 border-b border-white/15 pb-4">
@@ -452,9 +451,6 @@ export function AdminPage() {
               <ArrowLeft size={16} /> <span className="hidden min-[380px]:inline">Back to website</span><span className="min-[380px]:hidden">Website</span>
             </a>
             <div className="flex shrink-0 gap-2">
-              <button type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/25 px-3 text-sm font-semibold text-white transition hover:bg-white/10" onClick={() => void loadAdminData()}>
-                <RefreshCw size={16} /> <span className="hidden sm:inline">Refresh</span>
-              </button>
               <button type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-white px-3 text-sm font-bold text-ocean-950 transition hover:bg-ocean-50" onClick={() => void lockAdmin()}>
                 <LogOut size={16} /> Sign out
               </button>
@@ -494,7 +490,7 @@ export function AdminPage() {
       </nav>
 
       <div className="mx-auto max-w-7xl px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
-        <section className="mb-5 grid grid-cols-2 gap-3 sm:mb-7 sm:gap-4 lg:grid-cols-5" aria-label="Dashboard summary">
+        <section className="admin-mobile-summary mb-5 grid grid-cols-2 gap-3 sm:mb-7 sm:gap-4 lg:grid-cols-5" aria-label="Dashboard summary">
           <SummaryCard icon={<ClipboardList size={18} />} label="Special trips" value={specialTrips.length} accent="bg-amber-50 text-amber-800" />
           <SummaryCard icon={<MapPinned size={18} />} label="Places" value={destinations.length} accent="bg-sky-50 text-sky-800" />
           <SummaryCard icon={<MessageSquare size={18} />} label="New enquiries" value={pendingEnquiries.length} accent="bg-violet-50 text-violet-800" />
@@ -502,7 +498,7 @@ export function AdminPage() {
           <SummaryCard icon={<Users size={18} />} label="Customer reviews" value={customerReviews.length} accent="bg-rose-50 text-rose-800" />
         </section>
 
-        <div className="grid min-w-0 gap-5 lg:grid-cols-2 lg:gap-6">
+        <div className="admin-content grid min-w-0 gap-5 lg:grid-cols-2 lg:gap-6">
         <section id="special-trips" className="min-w-0 scroll-mt-20 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
