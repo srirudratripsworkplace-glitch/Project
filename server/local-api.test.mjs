@@ -34,7 +34,7 @@ async function startTestApi({ pool = makePool(async (sql) => {
     return { rows: [{ id: 'enquiry-uuid', created_at: '2026-10-09T00:00:00.000Z' }] };
   }
   return { rows: [], rowCount: 1 };
-}), sendEmailNotification = async () => 'disabled', sendWhatsAppNotification = async () => 'disabled', processImage } = {}) {
+}), sendEmailNotification, sendWhatsAppNotification, processImage, createEmailTransport, env: envOverrides = {} } = {}) {
   const app = createApiApp({
     pool,
     env: {
@@ -42,10 +42,12 @@ async function startTestApi({ pool = makePool(async (sql) => {
       ADMIN_PASSWORD_HASH: adminPasswordHash,
       ADMIN_SESSION_SECRET: sessionSecret,
       CORS_ORIGINS: frontendOrigin,
+      ...envOverrides,
     },
     sendEmailNotification,
     sendWhatsAppNotification,
     processImage,
+    createEmailTransport,
   });
   const server = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
@@ -594,6 +596,89 @@ describe('public API access controls and validation', () => {
     expect(response.status).toBe(201);
     expect(api.pool.query).toHaveBeenCalledWith(expect.stringContaining('insert into enquiries'), expect.any(Array));
     expect((await response.json()).notifications).toEqual({ email: 'failed', whatsapp: 'failed' });
+  });
+
+  it('sends email notifications to the configured enquiry recipient', async () => {
+    const sendMail = vi.fn(async () => ({ messageId: 'test-message' }));
+    const createEmailTransport = vi.fn(() => ({ sendMail }));
+    const pool = makePool(async (sql) => sql.includes('insert into enquiries')
+      ? { rows: [{ id: 'enquiry-uuid', created_at: '2026-10-09T00:00:00.000Z' }] }
+      : { rows: [], rowCount: 1 });
+    api = await startTestApi({
+      pool,
+      createEmailTransport,
+      env: {
+        SMTP_HOST: 'smtp.example.com',
+        SMTP_PORT: '587',
+        SMTP_USER: 'smtp-user',
+        SMTP_PASS: 'smtp-test-password',
+        ENQUIRY_FROM_EMAIL: 'sender@example.com',
+        ENQUIRY_TO_EMAIL: 'trips@example.com',
+      },
+    });
+    const response = await apiRequest(api.url, '/api/enquiries', {
+      method: 'POST',
+      body: {
+        name: 'Test Customer',
+        phone: '+447911123456',
+        destination: 'Bath',
+        travellers: '2',
+      },
+    });
+
+    expect(response.status).toBe(201);
+    expect((await response.json()).notifications.email).toBe('sent');
+    expect(createEmailTransport).toHaveBeenCalledWith(expect.objectContaining({
+      host: 'smtp.example.com',
+      port: 587,
+      secure: false,
+    }));
+    expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({
+      from: 'sender@example.com',
+      to: 'trips@example.com',
+      text: expect.stringContaining('Destination: Bath'),
+      html: expect.stringContaining('<th scope="col"'),
+    }));
+  });
+
+  it('includes the customer reply address and escapes email content in the HTML notification', async () => {
+    const sendMail = vi.fn(async () => ({ messageId: 'test-message' }));
+    const pool = makePool(async (sql) => sql.includes('insert into enquiries')
+      ? { rows: [{ id: 'enquiry-uuid', created_at: '2026-10-09T00:00:00.000Z' }] }
+      : { rows: [], rowCount: 1 });
+    api = await startTestApi({
+      pool,
+      createEmailTransport: () => ({ sendMail }),
+      env: {
+        SMTP_HOST: 'smtp.example.com',
+        SMTP_PORT: '465',
+        SMTP_USER: 'smtp-user',
+        SMTP_PASS: 'smtp-test-password',
+        ENQUIRY_FROM_EMAIL: 'sender@example.com',
+      },
+    });
+    const response = await apiRequest(api.url, '/api/enquiries', {
+      method: 'POST',
+      body: {
+        name: '<Customer>',
+        phone: '+447911123456',
+        email: 'customer@example.com',
+        destination: 'Bath & <Wells>',
+        travellers: '2',
+        message: 'Please call <me>.',
+      },
+    });
+
+    expect(response.status).toBe(201);
+    expect((await response.json()).notifications.email).toBe('sent');
+    expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({
+      replyTo: 'customer@example.com',
+      html: expect.stringContaining('&lt;Customer&gt;'),
+    }));
+    const html = sendMail.mock.calls[0][0].html;
+    expect(html).toContain('Bath &amp; &lt;Wells&gt;');
+    expect(html).toContain('Please call &lt;me&gt;.');
+    expect(html).not.toContain('<Customer>');
   });
 
   it('prevents administrators from adding more than 10 customer reviews', async () => {

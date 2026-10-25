@@ -51,6 +51,7 @@ export function createApiApp({
   sendEmailNotification,
   sendWhatsAppNotification,
   processImage = processImageReference,
+  createEmailTransport = nodemailer.createTransport,
 } = {}) {
   if (!pool) throw new Error('A database pool is required to create the API.');
   const app = express();
@@ -60,7 +61,7 @@ export function createApiApp({
   const sessionSecret = env.ADMIN_SESSION_SECRET;
   const cookieName = isProduction ? '__Host-srirudra-admin' : 'srirudra-admin';
   const smtpPort = Number(env.SMTP_PORT);
-  const enquiryToEmail = 'srirudratrips@gmail.com';
+  const enquiryToEmail = env.ENQUIRY_TO_EMAIL || 'srirudratrips@gmail.com';
   const whatsappBusinessNumber = (env.WHATSAPP_BUSINESS_NUMBER || '447405958896').replace(/\D/g, '');
   const emailNotificationsConfigured = Boolean(
     env.SMTP_HOST &&
@@ -79,7 +80,7 @@ export function createApiApp({
     env.WHATSAPP_API_VERSION,
   );
   const mailer = emailNotificationsConfigured
-    ? nodemailer.createTransport({
+    ? createEmailTransport({
       host: env.SMTP_HOST,
       port: smtpPort,
       secure: smtpPort === 465,
@@ -676,21 +677,42 @@ async function sendEnquiryEmail(enquiry) {
   if (!mailer) return 'disabled';
 
   try {
+    const submittedAt = new Date(enquiry.createdAt).toISOString();
+    const fields = [
+      ['Name', enquiry.name],
+      ['Email', enquiry.email || 'Not provided'],
+      ['Phone', enquiry.phone],
+      ['Destination', enquiry.destination],
+      ['Travel date', enquiry.travelDate || 'Not specified'],
+      ['Travellers', enquiry.travellers],
+      ['Message', enquiry.message || 'Not provided'],
+      ['Submitted at', submittedAt],
+      ['Enquiry ID', enquiry.id],
+    ];
+    const htmlRows = fields.map(([label, value]) => `
+      <tr>
+        <th scope="row" style="padding:12px 14px;text-align:left;background:#f1f5f9;border:1px solid #dbe3ec;color:#334155;width:32%">${escapeHtml(label)}</th>
+        <td style="padding:12px 14px;border:1px solid #dbe3ec;color:#0f172a;white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(value)}</td>
+      </tr>`).join('');
+
     await mailer.sendMail({
       from: env.ENQUIRY_FROM_EMAIL,
       to: enquiryToEmail,
       subject: 'New Sri Rudra Trips enquiry',
-      text: [
-        `Enquiry ID: ${enquiry.id}`,
-        `Submitted: ${new Date(enquiry.createdAt).toISOString()}`,
-        `Customer name: ${enquiry.name}`,
-        `Customer phone: ${enquiry.phone}`,
-        `Customer email: ${enquiry.email || 'Not provided'}`,
-        `Destination: ${enquiry.destination}`,
-        `Travel date: ${enquiry.travelDate || 'Not specified'}`,
-        `Travellers: ${enquiry.travellers}`,
-        `Message: ${enquiry.message || 'Not provided'}`,
-      ].join('\n'),
+      ...(enquiry.email ? { replyTo: enquiry.email } : {}),
+      text: fields.map(([label, value]) => `${label}: ${value}`).join('\n'),
+      html: `
+        <div style="margin:0 auto;max-width:680px;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#0f172a">
+          <h1 style="margin:0;padding:18px 20px;background:#123b59;color:#fff;font-size:22px">New trip enquiry</h1>
+          <p style="margin:20px 0 12px;color:#475569">A customer submitted an enquiry through the Sri Rudra Trips website.</p>
+          <table role="table" style="width:100%;border-collapse:collapse;font-size:14px">
+            <thead><tr>
+              <th scope="col" style="padding:12px 14px;text-align:left;background:#334e8c;border:1px solid #dbe3ec;color:#fff">Name</th>
+              <th scope="col" style="padding:12px 14px;text-align:left;background:#334e8c;border:1px solid #dbe3ec;color:#fff">Value</th>
+            </tr></thead>
+            <tbody>${htmlRows}</tbody>
+          </table>
+        </div>`,
     });
     return 'sent';
   } catch (error) {
@@ -1049,6 +1071,16 @@ function isValidEnquiry(value) {
 function isValidEmail(value) {
   return typeof value === 'string' && value.length <= 254 &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character]);
 }
 
 function isSafeImage(value, maxLength = 4096) {
