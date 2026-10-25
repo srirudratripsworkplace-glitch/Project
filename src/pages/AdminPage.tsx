@@ -18,13 +18,15 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import type { CustomerReview, Destination, Enquiry, SpecialTrip, TripCategory } from '../data/destinations';
+import type { CustomerReview, Destination, Enquiry, ManualTripNote, SpecialTrip, TripCategory } from '../data/destinations';
 import {
   createCustomerReview,
+  createManualTripNote,
   deleteEnquiry,
   deleteCustomerReview,
   deleteCategory,
   deleteDestination,
+  deleteManualTripNote,
   deleteSpecialTrip,
   getAdminTripData,
   createSpecialTrip,
@@ -33,6 +35,7 @@ import {
   logoutAdmin,
   updateEnquiryConfirmation,
   updateCustomerReview,
+  updateManualTripNote,
   updateSpecialTrip,
   upsertCategory,
   upsertDestination,
@@ -90,6 +93,16 @@ const emptyCustomerReview: Omit<CustomerReview, 'id' | 'createdAt'> = {
   isActive: true,
 };
 
+const emptyManualTripNote: Omit<ManualTripNote, 'id' | 'createdAt'> = {
+  tripDate: '',
+  customerName: '',
+  destination: '',
+  reachedLocation: '',
+  reachedDate: '',
+  amount: '',
+  notes: '',
+};
+
 const maximumImageSize = 2 * 1024 * 1024;
 const maximumDestinationImageDataLength = 17_000_000;
 const maximumCustomerReviews = 10;
@@ -105,12 +118,15 @@ export function AdminPage() {
   const [isUpdatingConfirmations, setIsUpdatingConfirmations] = useState(false);
   const [specialTrips, setSpecialTrips] = useState<SpecialTrip[]>([]);
   const [customerReviews, setCustomerReviews] = useState<CustomerReview[]>([]);
+  const [manualTripNotes, setManualTripNotes] = useState<ManualTripNote[]>([]);
   const [categoryForm, setCategoryForm] = useState<TripCategory>(emptyCategory);
   const [destinationForm, setDestinationForm] = useState<Destination>(emptyDestination);
   const [specialTripForm, setSpecialTripForm] = useState<SpecialTrip>(emptySpecialTrip);
   const [editingSpecialTripId, setEditingSpecialTripId] = useState('');
   const [customerReviewForm, setCustomerReviewForm] = useState<Omit<CustomerReview, 'id' | 'createdAt'>>(emptyCustomerReview);
   const [editingCustomerReviewId, setEditingCustomerReviewId] = useState('');
+  const [manualTripNoteForm, setManualTripNoteForm] = useState<Omit<ManualTripNote, 'id' | 'createdAt'>>(emptyManualTripNote);
+  const [editingManualTripNoteId, setEditingManualTripNoteId] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const destinationFormRef = useRef<HTMLFormElement>(null);
@@ -160,6 +176,7 @@ export function AdminPage() {
       setSelectedEnquiryIds([]);
       setSpecialTrips(data.specialTrips ?? []);
       setCustomerReviews(data.customerReviews ?? []);
+      setManualTripNotes(data.manualTripNotes);
       setDestinationForm((current) => ({ ...current, categoryId: current.categoryId || data.categories[0]?.id || '' }));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load admin data.');
@@ -188,6 +205,7 @@ export function AdminPage() {
       setSelectedEnquiryIds([]);
       setSpecialTrips([]);
       setCustomerReviews([]);
+      setManualTripNotes([]);
       setStatus('');
       setError('');
     } catch (logoutError) {
@@ -393,6 +411,34 @@ export function AdminPage() {
     }
   }
 
+  async function saveManualTripNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      if (editingManualTripNoteId) {
+        await updateManualTripNote(editingManualTripNoteId, manualTripNoteForm);
+      } else {
+        await createManualTripNote(manualTripNoteForm);
+      }
+      setManualTripNoteForm(emptyManualTripNote);
+      setEditingManualTripNoteId('');
+      setStatus(editingManualTripNoteId ? 'Trip note updated.' : 'Trip note saved.');
+      await loadAdminData();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Could not save trip note.');
+    }
+  }
+
+  async function removeManualTripNote(note: ManualTripNote) {
+    if (!window.confirm(`Delete the trip note for "${note.customerName}"? This cannot be undone.`)) return;
+    try {
+      await deleteManualTripNote(note.id);
+      setStatus('Trip note deleted.');
+      await loadAdminData();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Could not delete trip note.');
+    }
+  }
+
   function toggleEnquirySelection(id: string) {
     setSelectedEnquiryIds((current) => current.includes(id)
       ? current.filter((selectedId) => selectedId !== id)
@@ -481,6 +527,7 @@ export function AdminPage() {
             ['reviews', 'Reviews'],
             ['enquiries', 'Enquiries'],
             ['confirmed-trips', 'Confirmed trips'],
+            ['trip-notes', 'Trip notes'],
           ].map(([id, label]) => (
             <a key={id} className="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-ocean-50 hover:text-ocean-900 sm:text-sm" href={`#${id}`}>
               {label}
@@ -911,6 +958,93 @@ export function AdminPage() {
               <p className="mt-1 text-sm text-slate-500">New customer enquiries will appear here.</p>
             </div>
           )}
+        </section>
+
+        <section id="trip-notes" className="min-w-0 scroll-mt-20 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-ocean-900">Manual trip notes</h2>
+              <p className="mt-1 text-sm text-slate-600">Keep your own trip records and notes. These entries are only visible to admins.</p>
+            </div>
+          </div>
+          <form className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={saveManualTripNote}>
+            <label>
+              <span className="mb-2 block text-sm font-bold">Trip date</span>
+              <input type="date" value={manualTripNoteForm.tripDate} onChange={(event) => setManualTripNoteForm({ ...manualTripNoteForm, tripDate: event.target.value })} required />
+            </label>
+            <TextInput label="Customer name" value={manualTripNoteForm.customerName} onChange={(customerName) => setManualTripNoteForm({ ...manualTripNoteForm, customerName })} required />
+            <TextInput label="Destination" value={manualTripNoteForm.destination} onChange={(destination) => setManualTripNoteForm({ ...manualTripNoteForm, destination })} required />
+            <TextInput label="Reached location" value={manualTripNoteForm.reachedLocation} onChange={(reachedLocation) => setManualTripNoteForm({ ...manualTripNoteForm, reachedLocation })} />
+            <label>
+              <span className="mb-2 block text-sm font-bold">Reached date</span>
+              <input type="date" value={manualTripNoteForm.reachedDate} onChange={(event) => setManualTripNoteForm({ ...manualTripNoteForm, reachedDate: event.target.value })} />
+            </label>
+            <label>
+              <span className="mb-2 block text-sm font-bold">Amount (£)</span>
+              <input type="number" min="0" step="0.01" value={manualTripNoteForm.amount} onChange={(event) => setManualTripNoteForm({ ...manualTripNoteForm, amount: event.target.value })} />
+            </label>
+            <label className="sm:col-span-2 lg:col-span-3">
+              <span className="mb-2 block text-sm font-bold">Notes</span>
+              <textarea value={manualTripNoteForm.notes} onChange={(event) => setManualTripNoteForm({ ...manualTripNoteForm, notes: event.target.value })} rows={3} />
+            </label>
+            <div className="flex flex-wrap items-center gap-3 sm:col-span-2 lg:col-span-3">
+              <button className="btn-primary justify-center" type="submit">
+                <Save size={17} /> {editingManualTripNoteId ? 'Update Trip Note' : 'Save Trip Note'}
+              </button>
+              {editingManualTripNoteId && (
+                <button type="button" className="text-sm font-bold text-ocean-700 underline" onClick={() => {
+                  setManualTripNoteForm(emptyManualTripNote);
+                  setEditingManualTripNoteId('');
+                }}>
+                  Cancel edit
+                </button>
+              )}
+            </div>
+          </form>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {manualTripNotes.map((note) => (
+              <article key={note.id} className="rounded-xl border border-slate-200 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="break-words font-bold text-ocean-950">{note.customerName}</h3>
+                    <p className="mt-1 break-words text-sm font-semibold text-slate-700">{note.destination}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-ocean-50 px-2.5 py-1 text-xs font-bold text-ocean-800">
+                    {new Date(`${note.tripDate}T00:00:00`).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-1 text-sm text-slate-600">
+                  {note.reachedLocation && <p><span className="font-semibold text-slate-700">Reached:</span> {note.reachedLocation}</p>}
+                  {note.reachedDate && <p><span className="font-semibold text-slate-700">Reached date:</span> {new Date(`${note.reachedDate}T00:00:00`).toLocaleDateString()}</p>}
+                  {note.amount && <p><span className="font-semibold text-slate-700">Amount:</span> {formatPoundPrice(note.amount)}</p>}
+                  {note.notes && <p className="whitespace-pre-wrap break-words"><span className="font-semibold text-slate-700">Notes:</span> {note.notes}</p>}
+                </div>
+                <div className="mt-4 flex gap-4 border-t border-slate-100 pt-3">
+                  <button type="button" className="text-sm font-bold text-ocean-800" onClick={() => {
+                    setManualTripNoteForm({
+                      tripDate: note.tripDate,
+                      customerName: note.customerName,
+                      destination: note.destination,
+                      reachedLocation: note.reachedLocation,
+                      reachedDate: note.reachedDate,
+                      amount: note.amount,
+                      notes: note.notes,
+                    });
+                    setEditingManualTripNoteId(note.id);
+                    setError('');
+                    setStatus('');
+                  }}>
+                    Edit
+                  </button>
+                  <button type="button" className="text-sm font-bold text-red-700" onClick={() => void removeManualTripNote(note)}>
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+            {manualTripNotes.length === 0 && <p className="text-sm text-slate-500">No manual trip notes yet. Add a trip record above.</p>}
+          </div>
         </section>
 
         <section id="confirmed-trips" className="min-w-0 scroll-mt-20 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">

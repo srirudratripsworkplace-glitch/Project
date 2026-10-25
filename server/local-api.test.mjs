@@ -114,6 +114,9 @@ describe('public API access controls and validation', () => {
       ['/api/customer-reviews', 'POST', {}],
       ['/api/customer-reviews/test-review', 'PUT', {}],
       ['/api/customer-reviews/test-review', 'DELETE'],
+      ['/api/manual-trip-notes', 'POST', {}],
+      ['/api/manual-trip-notes/00000000-0000-4000-8000-000000000001', 'PUT', {}],
+      ['/api/manual-trip-notes/00000000-0000-4000-8000-000000000001', 'DELETE'],
       ['/api/enquiries/00000000-0000-4000-8000-000000000001', 'DELETE'],
       ['/api/enquiries/confirmation', 'PUT', { ids: ['00000000-0000-4000-8000-000000000001'], isConfirmed: true }],
     ];
@@ -316,6 +319,85 @@ describe('public API access controls and validation', () => {
     const response = await apiRequest(api.url, `/api/enquiries/${id}`, { method: 'DELETE', cookie });
     expect(response.status).toBe(204);
     expect(api.pool.query).toHaveBeenCalledWith('delete from enquiries where id = $1', [id]);
+  });
+
+  it('allows administrators to create, update, and delete manual trip notes', async () => {
+    const row = {
+      id: '00000000-0000-4000-8000-000000000001',
+      trip_date: '2026-10-20',
+      customer_name: 'Test Customer',
+      destination: 'Bath',
+      reached_location: 'Bath city centre',
+      reached_date: '2026-10-20',
+      amount: '125.50',
+      notes: 'Customer paid in full.',
+      created_at: '2026-10-20T09:00:00.000Z',
+    };
+    api = await startTestApi({
+      pool: makePool(async (sql) => {
+        if (sql.includes('insert into public.manual_trip_notes') || sql.includes('update public.manual_trip_notes')) {
+          return { rows: [row], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 1 };
+      }),
+    });
+    const { cookie } = await signIn(api.url);
+    const body = {
+      tripDate: row.trip_date,
+      customerName: row.customer_name,
+      destination: row.destination,
+      reachedLocation: row.reached_location,
+      reachedDate: row.reached_date,
+      amount: row.amount,
+      notes: row.notes,
+    };
+
+    const created = await apiRequest(api.url, '/api/manual-trip-notes', { method: 'POST', cookie, body });
+    expect(created.status).toBe(201);
+    expect(await created.json()).toMatchObject({
+      id: row.id,
+      tripDate: row.trip_date,
+      customerName: row.customer_name,
+      reachedLocation: row.reached_location,
+      reachedDate: row.reached_date,
+      amount: row.amount,
+      notes: row.notes,
+    });
+    expect(api.pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('insert into public.manual_trip_notes'),
+      [row.trip_date, row.customer_name, row.destination, row.reached_location, row.reached_date, row.amount, row.notes],
+    );
+
+    const updated = await apiRequest(api.url, `/api/manual-trip-notes/${row.id}`, { method: 'PUT', cookie, body });
+    expect(updated.status).toBe(200);
+    expect(api.pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('update public.manual_trip_notes'),
+      [row.id, row.trip_date, row.customer_name, row.destination, row.reached_location, row.reached_date, row.amount, row.notes],
+    );
+
+    const deleted = await apiRequest(api.url, `/api/manual-trip-notes/${row.id}`, { method: 'DELETE', cookie });
+    expect(deleted.status).toBe(204);
+    expect(api.pool.query).toHaveBeenLastCalledWith(
+      'delete from public.manual_trip_notes where id = $1',
+      [row.id],
+    );
+  });
+
+  it('rejects invalid manual trip notes before database writes', async () => {
+    api = await startTestApi();
+    const { cookie } = await signIn(api.url);
+    const invalidBodies = [
+      { tripDate: '', customerName: 'Test Customer', destination: 'Bath' },
+      { tripDate: '2026-02-30', customerName: 'Test Customer', destination: 'Bath' },
+      { tripDate: '2026-10-20', customerName: 'Test Customer', destination: 'Bath', amount: '-1' },
+      { tripDate: '2026-10-20', customerName: 'Test Customer', destination: 'Bath', amount: '100000000' },
+      { tripDate: '2026-10-20', customerName: 'Test Customer', destination: 'Bath', reachedDate: 'not-a-date' },
+    ];
+    for (const body of invalidBodies) {
+      const response = await apiRequest(api.url, '/api/manual-trip-notes', { method: 'POST', cookie, body });
+      expect(response.status).toBe(400);
+    }
+    expect(api.pool.query).not.toHaveBeenCalled();
   });
 
   it('allows administrators to confirm and unconfirm selected enquiries', async () => {
@@ -620,6 +702,8 @@ describe('Supabase policy configuration', () => {
     expect(sql).toContain("auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'");
     expect(sql).toContain('from pg_policies');
     expect(sql).toContain("'drop policy %I on %I.%I'");
+    expect(sql).toContain('on public.manual_trip_notes for all to authenticated');
+    expect(sql).toContain('public.manual_trip_notes from public, anon, authenticated');
     expect(sql).not.toMatch(/using\s*\(\s*true\s*\)/i);
     expect(sql).toMatch(/revoke all on public\.trip_categories, public\.destinations, public\.enquiries,/i);
   });

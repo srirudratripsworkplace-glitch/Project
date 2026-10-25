@@ -1,4 +1,4 @@
-import type { CustomerReview, Destination, Enquiry, SpecialTrip, TripCategory } from '../data/destinations';
+import type { CustomerReview, Destination, Enquiry, ManualTripNote, SpecialTrip, TripCategory } from '../data/destinations';
 import { resolveApiBaseUrl } from '../config/runtime';
 import type { EnquiryPayload } from '../utils/whatsapp';
 
@@ -14,6 +14,7 @@ type AdminData = TripData & {
   enquiries: Enquiry[];
   specialTrips: SpecialTrip[];
   customerReviews: CustomerReview[];
+  manualTripNotes: ManualTripNote[];
 };
 
 export type EnquirySubmissionResult = {
@@ -183,4 +184,22 @@ export async function updateCustomerReview(id: string, review: Omit<CustomerRevi
 
 export async function deleteCustomerReview(id: string) {
   await request(`/api/customer-reviews/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export async function createManualTripNote(note: Omit<ManualTripNote, 'id' | 'createdAt'>) {
+  await request('/api/manual-trip-notes', {
+    method: 'POST',
+    body: JSON.stringify(note),
+  });
+}
+
+export async function updateManualTripNote(id: string, note: Omit<ManualTripNote, 'id' | 'createdAt'>) {
+  await request(`/api/manual-trip-notes/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(note),
+  });
+}
+
+export async function deleteManualTripNote(id: string) {
+  await request(`/api/manual-trip-notes/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }

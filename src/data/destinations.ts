@@ -64,3 +64,15 @@ export interface CustomerReview {
   isActive: boolean;
   createdAt: string;
 }
+
+export interface ManualTripNote {
+  id: string;
+  tripDate: string;
+  customerName: string;
+  destination: string;
+  reachedLocation: string;
+  reachedDate: string;
+  amount: string;
+  notes: string;
+  createdAt: string;
+}

@@ -71,4 +71,17 @@ create table if not exists public.special_trips (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.manual_trip_notes (
+  id uuid primary key default gen_random_uuid(),
+  trip_date date not null,
+  customer_name text not null,
+  destination text not null,
+  reached_location text not null default '',
+  reached_date date,
+  amount numeric(10, 2) check (amount is null or amount >= 0),
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 \ir seed-trips.sql

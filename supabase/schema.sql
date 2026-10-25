@@ -71,11 +71,25 @@ create table if not exists public.special_trips (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.manual_trip_notes (
+  id uuid primary key default gen_random_uuid(),
+  trip_date date not null,
+  customer_name text not null,
+  destination text not null,
+  reached_location text not null default '',
+  reached_date date,
+  amount numeric(10, 2) check (amount is null or amount >= 0),
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.trip_categories enable row level security;
 alter table public.destinations enable row level security;
 alter table public.enquiries enable row level security;
 alter table public.customer_reviews enable row level security;
 alter table public.special_trips enable row level security;
+alter table public.manual_trip_notes enable row level security;
 
 do $$
 declare
@@ -85,7 +99,7 @@ begin
     select schemaname, tablename, policyname
     from pg_policies
     where schemaname = 'public'
-      and tablename in ('trip_categories', 'destinations', 'enquiries', 'customer_reviews', 'special_trips')
+      and tablename in ('trip_categories', 'destinations', 'enquiries', 'customer_reviews', 'special_trips', 'manual_trip_notes')
   loop
     execute format(
       'drop policy %I on %I.%I',
@@ -143,12 +157,16 @@ create policy "Administrators manage customer reviews"
   on public.customer_reviews for all to authenticated
   using (auth.uid() is not null and (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
   with check (auth.uid() is not null and (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+create policy "Administrators manage manual trip notes"
+  on public.manual_trip_notes for all to authenticated
+  using (auth.uid() is not null and (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+  with check (auth.uid() is not null and (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
 revoke all on public.trip_categories, public.destinations, public.enquiries,
-  public.customer_reviews, public.special_trips from public, anon, authenticated;
+  public.customer_reviews, public.special_trips, public.manual_trip_notes from public, anon, authenticated;
 grant select on public.trip_categories, public.destinations, public.customer_reviews,
   public.special_trips to anon, authenticated;
 grant insert on public.enquiries to anon, authenticated;
 grant select, insert, update, delete on public.trip_categories, public.destinations,
-  public.customer_reviews, public.special_trips to authenticated;
+  public.customer_reviews, public.special_trips, public.manual_trip_notes to authenticated;
 grant select on public.enquiries to authenticated;

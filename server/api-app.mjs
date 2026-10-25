@@ -245,7 +245,7 @@ app.get('/api/customer-reviews', async (_request, response, next) => {
 
 app.get('/api/admin-data', requireAdmin, async (_request, response, next) => {
   try {
-    const [categories, destinations, enquiries, specialTrips, customerReviews] = await Promise.all([
+    const [categories, destinations, enquiries, specialTrips, customerReviews, manualTripNotes] = await Promise.all([
       pool.query('select * from trip_categories order by sort_order asc, title asc'),
       pool.query('select * from destinations order by sort_order asc, name asc'),
       pool.query('select * from enquiries order by created_at desc'),
@@ -261,6 +261,13 @@ app.get('/api/admin-data', requireAdmin, async (_request, response, next) => {
          from public.customer_reviews
          order by created_at desc`,
       ),
+      pool.query(
+        `select id, trip_date::text as trip_date, customer_name, destination,
+          reached_location, reached_date::text as reached_date, amount::text as amount,
+          notes, created_at
+         from public.manual_trip_notes
+         order by trip_date desc, created_at desc`,
+      ),
     ]);
 
     response.json({
@@ -269,7 +276,61 @@ app.get('/api/admin-data', requireAdmin, async (_request, response, next) => {
       enquiries: enquiries.rows.map(toEnquiry),
       specialTrips: specialTrips.rows.map(toSpecialTrip),
       customerReviews: customerReviews.rows.map(toCustomerReview),
+      manualTripNotes: manualTripNotes.rows.map(toManualTripNote),
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/manual-trip-notes', requireAdmin, async (request, response, next) => {
+  const note = validateManualTripNote(request.body);
+  if (!note) {
+    return response.status(400).json({ error: 'Enter a trip date, customer name, and destination, and check the reached date and amount.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `insert into public.manual_trip_notes
+        (trip_date, customer_name, destination, reached_location, reached_date, amount, notes)
+       values ($1, $2, $3, $4, $5, $6, $7)
+       returning id, trip_date::text as trip_date, customer_name, destination,
+         reached_location, reached_date::text as reached_date, amount::text as amount, notes, created_at`,
+      [note.tripDate, note.customerName, note.destination, note.reachedLocation, note.reachedDate, note.amount, note.notes],
+    );
+    response.status(201).json(toManualTripNote(result.rows[0]));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put('/api/manual-trip-notes/:id', requireAdmin, validateReviewId, async (request, response, next) => {
+  const note = validateManualTripNote(request.body);
+  if (!note) {
+    return response.status(400).json({ error: 'Enter a trip date, customer name, and destination, and check the reached date and amount.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `update public.manual_trip_notes
+       set trip_date = $2, customer_name = $3, destination = $4, reached_location = $5,
+         reached_date = $6, amount = $7, notes = $8, updated_at = now()
+       where id = $1
+       returning id, trip_date::text as trip_date, customer_name, destination,
+         reached_location, reached_date::text as reached_date, amount::text as amount, notes, created_at`,
+      [request.params.id, note.tripDate, note.customerName, note.destination, note.reachedLocation, note.reachedDate, note.amount, note.notes],
+    );
+    if (!result.rows[0]) return response.status(404).json({ error: 'Manual trip note not found.' });
+    response.json(toManualTripNote(result.rows[0]));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/manual-trip-notes/:id', requireAdmin, validateReviewId, async (request, response, next) => {
+  try {
+    await pool.query('delete from public.manual_trip_notes where id = $1', [request.params.id]);
+    response.status(204).end();
   } catch (error) {
     next(error);
   }
@@ -1118,6 +1179,39 @@ function toEnquiry(row) {
     createdAt: row.created_at,
     isConfirmed: row.is_confirmed ?? false,
     confirmedAt: row.confirmed_at || '',
+  };
+}
+
+function toManualTripNote(row) {
+  return {
+    id: row.id,
+    tripDate: row.trip_date,
+    customerName: row.customer_name,
+    destination: row.destination,
+    reachedLocation: row.reached_location || '',
+    reachedDate: row.reached_date || '',
+    amount: row.amount == null ? '' : String(row.amount),
+    notes: row.notes || '',
+    createdAt: row.created_at,
+  };
+}
+
+function validateManualTripNote(value) {
+  if (!isPlainObject(value) || !isOptionalDate(value.tripDate) || !value.tripDate ||
+      !isText(value.customerName, 120, true) || !isText(value.destination, 160, true) ||
+      !isText(value.reachedLocation ?? '', 160) || !isOptionalDate(value.reachedDate) ||
+      !isOptionalNonNegativeNumber(value.amount) ||
+      (value.amount !== '' && value.amount != null && Number(value.amount) > 99999999.99) ||
+      !isText(value.notes ?? '', 2000)) return null;
+
+  return {
+    tripDate: value.tripDate,
+    customerName: value.customerName.trim(),
+    destination: value.destination.trim(),
+    reachedLocation: (value.reachedLocation ?? '').trim(),
+    reachedDate: value.reachedDate || null,
+    amount: value.amount === '' || value.amount == null ? null : String(value.amount),
+    notes: (value.notes ?? '').trim(),
   };
 }
 

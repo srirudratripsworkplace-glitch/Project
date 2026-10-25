@@ -7,7 +7,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "concurrently -k -n api,web \"node server/local-api.mjs\" \"vite --host 0.0.0.0\"",
     "start": "node server/local-api.mjs",
     "start:api": "node server/local-api.mjs",
     "build:api": "node --check server/local-api.mjs && node --check server/api-app.mjs && node --check server/images.mjs && node --check server/password.mjs",
